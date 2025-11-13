@@ -9,8 +9,10 @@ import (
 	"bytes"
 	"container/heap"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -20,6 +22,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/ipsetsink/sinkcluster"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/bridgefingerprint"
 
@@ -200,6 +204,8 @@ func main() {
 	var certFilename, keyFilename string
 	var disableGeoip bool
 	var metricsFilename string
+	var ipCountPrefix string
+	var ipCountInterval time.Duration
 	var unsafeLogging bool
 
 	flag.StringVar(&acmeEmail, "acme-email", "", "optional contact email for Let's Encrypt notifications")
@@ -217,6 +223,8 @@ func main() {
 	flag.BoolVar(&disableTLS, "disable-tls", false, "don't use HTTPS")
 	flag.BoolVar(&disableGeoip, "disable-geoip", false, "don't use geoip for stats collection")
 	flag.StringVar(&metricsFilename, "metrics-log", "", "path to metrics logging output")
+	flag.StringVar(&ipCountPrefix, "ip-count-prefix", "", "path prefix to ip count logging output")
+	flag.DurationVar(&ipCountInterval, "ip-count-interval", time.Hour, "time interval between each chunk")
 	flag.BoolVar(&unsafeLogging, "unsafe-logging", false, "prevent logs from being scrubbed")
 	flag.Parse()
 
@@ -262,6 +270,27 @@ func main() {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
+	}
+
+	if ipCountPrefix != "" {
+		restrictedCountFile, err := os.OpenFile(fmt.Sprintf("%s-restricted-%s.log", ipCountPrefix, time.Now().Format(time.RFC3339)), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		unrestrictedCountFile, err := os.OpenFile(fmt.Sprintf("%s-unrestricted-%s.log", ipCountPrefix, time.Now().Format(time.RFC3339)), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		var ipCountMaskingKey [32]byte
+		if n, err := rand.Read(ipCountMaskingKey[:]); (n < 32) || (err != nil) {
+			panic(err)
+		}
+		ctx.metrics.distinctIPWriter = sinkcluster.NewClusterWriter(
+			map[string]sinkcluster.WriteSyncer{
+				"restricted":   restrictedCountFile,
+				"unrestricted": unrestrictedCountFile,
+			}, ipCountMaskingKey, ipCountInterval)
 	}
 
 	go ctx.Broker()
