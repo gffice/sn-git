@@ -60,10 +60,9 @@ const (
 	DefaultBrokerURL    = "https://snowflake-broker.torproject.net/"
 	DefaultNATProbeURL  = "https://snowflake-broker.torproject.net:8443/probe"
 	// This is rather a "DefaultDefaultRelayURL"
-	DefaultRelayURL                  = "wss://snowflake.torproject.net/"
-	DefaultSTUNURL                   = "stun:stun.l.google.com:19302,stun:stun.voip.blackberry.com:3478"
-	DefaultProxyType                 = "standalone"
-	DefaultBridgeProbeRetestInterval = 24 * time.Hour
+	DefaultRelayURL  = "wss://snowflake.torproject.net/"
+	DefaultSTUNURL   = "stun:stun.l.google.com:19302,stun:stun.voip.blackberry.com:3478"
+	DefaultProxyType = "standalone"
 )
 
 const (
@@ -848,13 +847,13 @@ func (sf *SnowflakeProxy) Start() error {
 		defer NatRetestTask.Close()
 	}
 
-	BridgeProbeRetestTask := task.Periodic{
-		Interval: DefaultBridgeProbeRetestInterval,
+	BridgeProbeRetestTask := task.ExpBackoff{
+		MaxInterval: 24 * time.Hour,
+		MinInterval: 5 * time.Minute,
 		Execute: func() error {
 			err = sf.checkBridgeReachability()
 			if err != nil {
-				log.Printf("Connection to bridge at %s failed: %s\nRetrying in %s", sf.RelayURL,
-					err.Error(), DefaultBridgeProbeRetestInterval.String())
+				log.Printf("Connection to bridge at %s failed: %s", sf.RelayURL, err.Error())
 			}
 			sf.relayReachable = err == nil
 			return err
