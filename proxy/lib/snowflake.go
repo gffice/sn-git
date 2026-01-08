@@ -60,9 +60,10 @@ const (
 	DefaultBrokerURL    = "https://snowflake-broker.torproject.net/"
 	DefaultNATProbeURL  = "https://snowflake-broker.torproject.net:8443/probe"
 	// This is rather a "DefaultDefaultRelayURL"
-	DefaultRelayURL  = "wss://snowflake.torproject.net/"
-	DefaultSTUNURL   = "stun:stun.l.google.com:19302,stun:stun.voip.blackberry.com:3478"
-	DefaultProxyType = "standalone"
+	DefaultRelayURL                  = "wss://snowflake.torproject.net/"
+	DefaultSTUNURL                   = "stun:stun.l.google.com:19302,stun:stun.voip.blackberry.com:3478"
+	DefaultProxyType                 = "standalone"
+	DefaultBridgeProbeRetestInterval = 24 * time.Hour
 )
 
 const (
@@ -176,6 +177,8 @@ type SnowflakeProxy struct {
 
 	periodicProxyStats *periodicProxyStats
 	bytesLogger        bytesLogger
+
+	relayReachable bool
 }
 
 // Checks whether an IP address is a remote address for the client
@@ -840,11 +843,25 @@ func (sf *SnowflakeProxy) Start() error {
 			log.Printf("Periodic probetest failed: %s, retaining current NAT type: %s", err.Error(), getCurrentNATType())
 		},
 	}
-
 	if sf.NATTypeMeasurementInterval != 0 {
 		NatRetestTask.WaitThenStart()
 		defer NatRetestTask.Close()
 	}
+
+	BridgeProbeRetestTask := task.Periodic{
+		Interval: DefaultBridgeProbeRetestInterval,
+		Execute: func() error {
+			err = sf.checkBridgeReachability()
+			if err != nil {
+				log.Printf("Connection to bridge at %s failed: %s\nRetrying in %s", sf.RelayURL,
+					err.Error(), DefaultBridgeProbeRetestInterval.String())
+			}
+			sf.relayReachable = err == nil
+			return err
+		},
+	}
+	BridgeProbeRetestTask.Start()
+	defer BridgeProbeRetestTask.Close()
 
 	ticker := time.NewTicker(sf.PollInterval)
 	defer ticker.Stop()
@@ -854,9 +871,11 @@ func (sf *SnowflakeProxy) Start() error {
 		case <-sf.shutdown:
 			return nil
 		default:
-			tokens.get()
-			sessionID := genSessionID()
-			sf.runSession(sessionID)
+			if sf.relayReachable {
+				tokens.get()
+				sessionID := genSessionID()
+				sf.runSession(sessionID)
+			}
 		}
 	}
 	return nil
@@ -946,4 +965,12 @@ func (sf *SnowflakeProxy) checkNATType(config webrtc.Configuration, probeURL str
 	log.Printf("NAT Type measurement: %v -> %v\n", prevNATType, getCurrentNATType())
 
 	return nil
+}
+
+// checkBridgeReachability makes a test connection to DefaultRelayURL to see if the proxy
+// is able to make a working connection to the bridge
+func (sf *SnowflakeProxy) checkBridgeReachability() error {
+	wsConn, err := connectToRelay(sf.RelayURL, nil)
+	wsConn.Close()
+	return err
 }
