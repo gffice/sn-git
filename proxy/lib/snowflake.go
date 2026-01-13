@@ -852,11 +852,11 @@ func (sf *SnowflakeProxy) Start() error {
 		MinInterval: 5 * time.Minute,
 		Execute: func() error {
 			err = sf.checkBridgeReachability()
-			if err != nil {
-				log.Printf("Connection to bridge at %s failed: %s", sf.RelayURL, err.Error())
-			}
 			sf.relayReachable = err == nil
 			return err
+		},
+		OnError: func(err error) {
+			log.Printf("Connection to bridge at %s failed: %s", sf.RelayURL, err.Error())
 		},
 	}
 	BridgeProbeRetestTask.Start()
