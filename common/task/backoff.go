@@ -111,14 +111,7 @@ func (t *ExpBackoff) Start() error {
 	t.running = true
 	t.access.Unlock()
 
-	if err := t.checkedExecute(); err != nil {
-		t.access.Lock()
-		t.running = false
-		t.access.Unlock()
-		return err
-	}
-
-	return nil
+	return t.checkedExecute()
 }
 
 func (t *ExpBackoff) WaitThenStart() {
