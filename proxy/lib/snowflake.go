@@ -176,6 +176,8 @@ type SnowflakeProxy struct {
 
 	periodicProxyStats *periodicProxyStats
 	bytesLogger        bytesLogger
+
+	relayReachable bool
 }
 
 // Checks whether an IP address is a remote address for the client
@@ -840,11 +842,25 @@ func (sf *SnowflakeProxy) Start() error {
 			log.Printf("Periodic probetest failed: %s, retaining current NAT type: %s", err.Error(), getCurrentNATType())
 		},
 	}
-
 	if sf.NATTypeMeasurementInterval != 0 {
 		NatRetestTask.WaitThenStart()
 		defer NatRetestTask.Close()
 	}
+
+	BridgeProbeRetestTask := task.ExpBackoff{
+		MaxInterval: 24 * time.Hour,
+		MinInterval: 5 * time.Minute,
+		Execute: func() error {
+			err = sf.checkBridgeReachability()
+			sf.relayReachable = err == nil
+			return err
+		},
+		OnError: func(err error) {
+			log.Printf("Connection to bridge at %s failed: %s", sf.RelayURL, err.Error())
+		},
+	}
+	BridgeProbeRetestTask.Start()
+	defer BridgeProbeRetestTask.Close()
 
 	ticker := time.NewTicker(sf.PollInterval)
 	defer ticker.Stop()
@@ -854,9 +870,11 @@ func (sf *SnowflakeProxy) Start() error {
 		case <-sf.shutdown:
 			return nil
 		default:
-			tokens.get()
-			sessionID := genSessionID()
-			sf.runSession(sessionID)
+			if sf.relayReachable {
+				tokens.get()
+				sessionID := genSessionID()
+				sf.runSession(sessionID)
+			}
 		}
 	}
 	return nil
@@ -946,4 +964,12 @@ func (sf *SnowflakeProxy) checkNATType(config webrtc.Configuration, probeURL str
 	log.Printf("NAT Type measurement: %v -> %v\n", prevNATType, getCurrentNATType())
 
 	return nil
+}
+
+// checkBridgeReachability makes a test connection to DefaultRelayURL to see if the proxy
+// is able to make a working connection to the bridge
+func (sf *SnowflakeProxy) checkBridgeReachability() error {
+	wsConn, err := connectToRelay(sf.RelayURL, nil)
+	wsConn.Close()
+	return err
 }
