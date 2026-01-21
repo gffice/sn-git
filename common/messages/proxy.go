@@ -185,6 +185,11 @@ func DecodePollRequest(data []byte) (*ProxyPollRequest, error) {
 	return &message, nil
 }
 
+const (
+	ProxyClientMatch   = "client match"
+	ProxyClientNoMatch = "no match"
+)
+
 type ProxyPollResponse struct {
 	Status string
 	Offer  string
@@ -250,13 +255,13 @@ func DecodeProxyPollResponse(data []byte) (*ProxyPollResponse, error) {
 	}
 
 	err = nil
-	if message.Status == "client match" {
+	if message.Status == ProxyClientMatch {
 		if message.Offer == "" {
 			return nil, fmt.Errorf("no supplied offer")
 		}
 	} else {
 		message.Offer = ""
-		if message.Status != "no match" {
+		if message.Status != ProxyClientNoMatch {
 			err = errors.New(message.Status)
 		}
 	}

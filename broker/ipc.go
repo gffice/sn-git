@@ -115,7 +115,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		i.ctx.metrics.promMetrics.ProxyPollTotal.With(prometheus.Labels{"nat": req.NAT, "type": req.Type, "status": "idle"}).Inc()
 
 		resp := messages.ProxyPollResponse{
-			Status: "no match",
+			Status: messages.ProxyClientNoMatch,
 		}
 		b, err = resp.Encode()
 		if err != nil {
@@ -139,7 +139,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 	}
 	resp := messages.ProxyPollResponse{
 		Offer:    string(offer.sdp),
-		Status:   "client match",
+		Status:   messages.ProxyClientMatch,
 		NAT:      offer.natType,
 		RelayURL: relayURL,
 	}
