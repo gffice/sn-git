@@ -357,7 +357,11 @@ func TestBrokerInteractions(t *testing.T) {
 		Convey("polls broker correctly", func() {
 			var err error
 
-			b, err := messages.EncodePollResponse(sampleOffer, true, "unknown")
+			resp := messages.ProxyPollResponse{
+				Offer:  sampleOffer,
+				Status: messages.ProxyClientMatch,
+			}
+			b, err := resp.Encode()
 			So(err, ShouldBeNil)
 			broker.transport = &MockTransport{
 				http.StatusOK,
