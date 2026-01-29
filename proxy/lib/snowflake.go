@@ -851,7 +851,7 @@ func (sf *SnowflakeProxy) Start() error {
 		MaxInterval: 24 * time.Hour,
 		MinInterval: 5 * time.Minute,
 		Execute: func() error {
-			err = sf.checkBridgeReachability()
+			err := sf.checkBridgeReachability()
 			sf.relayReachable = err == nil
 			return err
 		},
@@ -970,6 +970,9 @@ func (sf *SnowflakeProxy) checkNATType(config webrtc.Configuration, probeURL str
 // is able to make a working connection to the bridge
 func (sf *SnowflakeProxy) checkBridgeReachability() error {
 	wsConn, err := connectToRelay(sf.RelayURL, nil)
-	wsConn.Close()
-	return err
+	if err != nil {
+		return fmt.Errorf("bridge relay is unreachable: %w", err)
+	}
+
+	return wsConn.Close()
 }
