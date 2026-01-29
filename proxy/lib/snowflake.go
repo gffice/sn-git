@@ -41,9 +41,6 @@ import (
 	"time"
 
 	"github.com/pion/ice/v4"
-	"github.com/theodorsm/covert-dtls/pkg/mimicry"
-	"github.com/theodorsm/covert-dtls/pkg/randomize"
-	"github.com/theodorsm/covert-dtls/pkg/utils"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/transport/v3/stdnet"
@@ -442,31 +439,11 @@ func (sf *SnowflakeProxy) makeWebRTCAPI() *webrtc.API {
 
 	settingsEngine.SetDTLSInsecureSkipHelloVerify(true)
 
-	if sf.CovertDTLSConfig.Fingerprint != "" {
-		mimic := &mimicry.MimickedClientHello{}
-		err := mimic.LoadFingerprint(sf.CovertDTLSConfig.Fingerprint)
+	if sf.CovertDTLSConfig.Mimic || sf.CovertDTLSConfig.Randomize || len(sf.CovertDTLSConfig.Fingerprint) > 0 {
+		err := covertdtls.SetCovertDTLSSettings(&sf.CovertDTLSConfig, &settingsEngine)
 		if err != nil {
-			log.Printf("NewPeerConnection ERROR: %s", err)
-			return nil
+			log.Fatalf("CovertDTLS ERROR: %s", err)
 		}
-		profiles := utils.DefaultSRTPProtectionProfiles()
-		settingsEngine.SetSRTPProtectionProfiles(profiles...)
-		settingsEngine.SetDTLSClientHelloMessageHook(mimic.Hook)
-	} else if sf.CovertDTLSConfig.Mimic {
-		mimic := &mimicry.MimickedClientHello{}
-		if sf.CovertDTLSConfig.Randomize {
-			err := mimic.LoadRandomFingerprint()
-			if err != nil {
-				log.Printf("makeWebRTCAPI ERROR: %s", err)
-				return nil
-			}
-		}
-		profiles := utils.DefaultSRTPProtectionProfiles()
-		settingsEngine.SetSRTPProtectionProfiles(profiles...)
-		settingsEngine.SetDTLSClientHelloMessageHook(mimic.Hook)
-	} else if sf.CovertDTLSConfig.Randomize {
-		rand := randomize.RandomizedMessageClientHello{RandomALPN: true}
-		settingsEngine.SetDTLSClientHelloMessageHook(rand.Hook)
 	}
 
 	return webrtc.NewAPI(webrtc.WithSettingEngine(settingsEngine))

@@ -15,9 +15,6 @@ import (
 	"github.com/pion/transport/v3"
 	"github.com/pion/transport/v3/stdnet"
 	"github.com/pion/webrtc/v4"
-	"github.com/theodorsm/covert-dtls/pkg/mimicry"
-	"github.com/theodorsm/covert-dtls/pkg/randomize"
-	"github.com/theodorsm/covert-dtls/pkg/utils"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/covertdtls"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/event"
@@ -303,36 +300,12 @@ func (c *WebRTCPeer) preparePeerConnection(
 
 	s.SetNet(vnet)
 
-	// Ensure that checks below does not trigger nil pointer dereference
-	if covertDTLSConfig == nil {
-		covertDTLSConfig = &covertdtls.CovertDTLSConfig{}
-	}
-
-	if covertDTLSConfig.Fingerprint != "" {
-		mimic := &mimicry.MimickedClientHello{}
-		err := mimic.LoadFingerprint(covertDTLSConfig.Fingerprint)
+	if covertDTLSConfig != nil {
+		err := covertdtls.SetCovertDTLSSettings(covertDTLSConfig, &s)
 		if err != nil {
-			log.Printf("NewPeerConnection ERROR: %s", err)
+			log.Printf("CovertDTLS ERROR: %s", err)
 			return err
 		}
-		profiles := utils.DefaultSRTPProtectionProfiles()
-		s.SetSRTPProtectionProfiles(profiles...)
-		s.SetDTLSClientHelloMessageHook(mimic.Hook)
-	} else if covertDTLSConfig.Mimic {
-		mimic := &mimicry.MimickedClientHello{}
-		if covertDTLSConfig.Randomize {
-			err := mimic.LoadRandomFingerprint()
-			if err != nil {
-				log.Printf("NewPeerConnection ERROR: %s", err)
-				return err
-			}
-		}
-		profiles := utils.DefaultSRTPProtectionProfiles()
-		s.SetSRTPProtectionProfiles(profiles...)
-		s.SetDTLSClientHelloMessageHook(mimic.Hook)
-	} else if covertDTLSConfig.Randomize {
-		rand := randomize.RandomizedMessageClientHello{RandomALPN: true}
-		s.SetDTLSClientHelloMessageHook(rand.Hook)
 	}
 
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(s))
