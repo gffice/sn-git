@@ -15,10 +15,13 @@ type CovertDTLSConfig struct {
 func ParseConfigString(str string) CovertDTLSConfig {
 	config := CovertDTLSConfig{}
 	str = strings.ToLower(str)
-	switch {
-	case strings.Contains(str, "random"):
+	switch str {
+	case "randomize":
 		config.Randomize = true
-	case strings.Contains(str, "mimic"):
+	case "mimic":
+		config.Mimic = true
+	case "randomizemimic":
+		config.Randomize = true
 		config.Mimic = true
 	default:
 	}
