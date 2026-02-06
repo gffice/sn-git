@@ -16,6 +16,7 @@ import (
 	"github.com/pion/transport/v3/stdnet"
 	"github.com/pion/webrtc/v4"
 
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/covertdtls"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/event"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/proxy"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/util"
@@ -84,6 +85,13 @@ func NewWebRTCPeerWithNatPolicyAndEventsAndProxy(
 	config *webrtc.Configuration, broker *BrokerChannel, natPolicy *NATPolicy,
 	eventsLogger event.SnowflakeEventReceiver, proxy *url.URL,
 ) (*WebRTCPeer, error) {
+	return NewCovertWebRTCPeerWithNatPolicyAndEventsAndProxy(config, broker, natPolicy, eventsLogger, proxy, nil)
+}
+
+func NewCovertWebRTCPeerWithNatPolicyAndEventsAndProxy(
+	config *webrtc.Configuration, broker *BrokerChannel, natPolicy *NATPolicy,
+	eventsLogger event.SnowflakeEventReceiver, proxy *url.URL, covertDTLSconfig *covertdtls.CovertDTLSConfig,
+) (*WebRTCPeer, error) {
 	if eventsLogger == nil {
 		eventsLogger = event.NewSnowflakeEventDispatcher()
 	}
@@ -107,7 +115,7 @@ func NewWebRTCPeerWithNatPolicyAndEventsAndProxy(
 	connection.eventsLogger = eventsLogger
 	connection.proxy = proxy
 
-	err := connection.connect(config, broker, natPolicy)
+	err := connection.connect(config, broker, natPolicy, covertDTLSconfig)
 	if err != nil {
 		connection.Close()
 		return nil, err
@@ -188,10 +196,11 @@ func (c *WebRTCPeer) connect(
 	config *webrtc.Configuration,
 	broker *BrokerChannel,
 	natPolicy *NATPolicy,
+	covertDTLSconfig *covertdtls.CovertDTLSConfig,
 ) error {
 	log.Println(c.id, " connecting...")
 
-	err := c.preparePeerConnection(config, broker.keepLocalAddresses)
+	err := c.preparePeerConnection(config, broker.keepLocalAddresses, covertDTLSconfig)
 	localDescription := c.pc.LocalDescription()
 	c.eventsLogger.OnNewSnowflakeEvent(event.EventOnOfferCreated{
 		WebRTCLocalDescription: localDescription,
@@ -258,6 +267,7 @@ func (c *WebRTCPeer) connect(
 func (c *WebRTCPeer) preparePeerConnection(
 	config *webrtc.Configuration,
 	keepLocalAddresses bool,
+	covertDTLSConfig *covertdtls.CovertDTLSConfig,
 ) error {
 	s := webrtc.SettingEngine{}
 
@@ -289,6 +299,15 @@ func (c *WebRTCPeer) preparePeerConnection(
 	}
 
 	s.SetNet(vnet)
+
+	if covertDTLSConfig != nil {
+		err := covertdtls.SetCovertDTLSSettings(covertDTLSConfig, &s)
+		if err != nil {
+			log.Printf("CovertDTLS ERROR: %s", err)
+			return err
+		}
+	}
+
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(s))
 	var err error
 	c.pc, err = api.NewPeerConnection(*config)
