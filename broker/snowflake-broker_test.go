@@ -474,7 +474,8 @@ client-sqs-ips
 				p.offerChannel <- &ClientOffer{sdp: []byte("fake offer"), fingerprint: defaultBridge[:]}
 				<-done
 				So(w.Code, ShouldEqual, http.StatusOK)
-				So(w.Body.String(), ShouldEqual, `{"Status":"client match","Offer":"fake offer","NAT":"","NextPoll":0,"RelayURL":"wss://snowflake.torproject.net/"}`)
+				So(w.Body.String(), ShouldContainSubstring, `"Status":"client match","Offer":"fake offer","NAT":"",`)
+				So(w.Body.String(), ShouldContainSubstring, `,"RelayURL":"wss://snowflake.torproject.net/"`)
 			})
 
 			Convey("return empty 200 OK when no client offer is available.", func() {
@@ -487,9 +488,30 @@ client-sqs-ips
 				// nil means timeout
 				p.offerChannel <- nil
 				<-done
-				So(w.Body.String(), ShouldEqual, `{"Status":"no match","Offer":"","NAT":"","NextPoll":0,"RelayURL":""}`)
+				So(w.Body.String(), ShouldContainSubstring, `{"Status":"no match","Offer":"","NAT":"","NextPoll"`)
+				So(w.Body.String(), ShouldContainSubstring, `,"RelayURL":""}`)
 				So(w.Code, ShouldEqual, http.StatusOK)
 			})
+
+			Convey("with accurate next poll.", func() {
+				go func(i *IPC) {
+					proxyPolls(i, w, r)
+					done <- true
+				}(i)
+				// Pass a fake client offer to this proxy
+				p := <-ctx.proxyPolls
+				So(p.id, ShouldEqual, "ymbcCMto7KHNGYlp")
+				p.offerChannel <- &ClientOffer{sdp: []byte("fake offer"), fingerprint: defaultBridge[:]}
+				<-done
+				So(w.Code, ShouldEqual, http.StatusOK)
+				resp, _ := messages.DecodeProxyPollResponse(w.Body.Bytes())
+				pollInterval := ctx.GetPool(p).GetPollInterval()
+				expectedNextPoll := time.Now().Add(pollInterval)
+				// Check to make sure that we're within 1 second
+				So(expectedNextPoll.Sub(resp.NextPoll).Milliseconds(),
+					ShouldBeLessThan, 1000)
+			})
+
 		})
 
 		Convey("Responds to proxy answers...", func() {
@@ -639,7 +661,8 @@ client-sqs-ips
 
 			<-polled
 			So(wP.Code, ShouldEqual, http.StatusOK)
-			So(wP.Body.String(), ShouldResemble, fmt.Sprintf(`{"Status":"client match","Offer":%#q,"NAT":"unknown","NextPoll":0,"RelayURL":"wss://snowflake.torproject.net/"}`, sdp))
+			So(wP.Body.String(), ShouldContainSubstring, fmt.Sprintf(`{"Status":"client match","Offer":%#q,"NAT":"unknown"`, sdp))
+			So(wP.Body.String(), ShouldContainSubstring, `"RelayURL":"wss://snowflake.torproject.net/"}`)
 			So(ctx.idToSnowflake[sid], ShouldNotBeNil)
 
 			// Follow up with the answer request afterwards
