@@ -120,15 +120,6 @@ func (req *ProxyPollRequest) Encode() ([]byte, error) {
 	return json.Marshal(req)
 }
 
-func DecodeProxyPollRequest(data []byte) (sid string, proxyType string, natType string, clients int, err error) {
-	var relayPrefix string
-	sid, proxyType, natType, clients, relayPrefix, _, err = DecodeProxyPollRequestWithRelayPrefix(data)
-	if relayPrefix != "" {
-		return "", "", "", 0, ErrExtraInfo
-	}
-	return
-}
-
 // Decodes a poll message from a snowflake proxy and returns the
 // sid, proxy type, nat type and clients of the proxy on success
 // and an error if it failed
@@ -136,7 +127,7 @@ func DecodeProxyPollRequestWithRelayPrefix(data []byte) (
 	sid string, proxyType string, natType string, clients int, relayPrefix string, relayPrefixAware bool, err error) {
 	var message *ProxyPollRequest
 
-	message, err = DecodePollRequest(data)
+	message, err = DecodeProxyPollRequest(data)
 	if err != nil {
 		return
 	}
@@ -150,7 +141,7 @@ func DecodeProxyPollRequestWithRelayPrefix(data []byte) (
 
 // Decodes a poll message from a snowflake proxy and returns a
 // ProxyPollRequest
-func DecodePollRequest(data []byte) (*ProxyPollRequest, error) {
+func DecodeProxyPollRequest(data []byte) (*ProxyPollRequest, error) {
 	var message ProxyPollRequest
 
 	if err := json.Unmarshal(data, &message); err != nil {

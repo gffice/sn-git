@@ -108,7 +108,7 @@ func TestDecodeProxyPollRequest(t *testing.T) {
 				err:       fmt.Errorf(""),
 			},
 		} {
-			req, err := DecodePollRequest([]byte(test.data))
+			req, err := DecodeProxyPollRequest([]byte(test.data))
 			if err == nil {
 				So(req.Sid, ShouldResemble, test.sid)
 				So(req.Type, ShouldResemble, test.proxyType)
@@ -136,7 +136,7 @@ func TestEncodeProxyPollRequests(t *testing.T) {
 		}
 		b, err := req.Encode()
 		So(err, ShouldBeNil)
-		req, err = DecodePollRequest(b)
+		req, err = DecodeProxyPollRequest(b)
 		So(req.Sid, ShouldEqual, "ymbcCMto7KHNGYlp")
 		So(req.Type, ShouldEqual, "standalone")
 		So(req.NAT, ShouldEqual, "unknown")
