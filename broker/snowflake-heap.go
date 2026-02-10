@@ -7,6 +7,7 @@ package main
 import (
 	"container/heap"
 	"sync"
+	"time"
 )
 
 /*
@@ -70,7 +71,7 @@ func (sh *SnowflakeHeap) Pop() interface{} {
 type SnowflakePool struct {
 	h            *SnowflakeHeap
 	lock         sync.Mutex
-	pollInterval uint //interval until next proxy poll in seconds
+	pollInterval time.Duration
 }
 
 func NewSnowflakePool() *SnowflakePool {
@@ -78,7 +79,7 @@ func NewSnowflakePool() *SnowflakePool {
 	heap.Init(h)
 	return &SnowflakePool{
 		h:            h,
-		pollInterval: 20,
+		pollInterval: 20 * time.Second,
 	}
 }
 
@@ -105,7 +106,6 @@ func (sp *SnowflakePool) Remove(s *Snowflake) {
 	}
 }
 
-// GetPollInterval returns the interval between proxy polls in seconds
-func (sp *SnowflakePool) GetPollInterval() uint {
+func (sp *SnowflakePool) GetPollInterval() time.Duration {
 	return sp.pollInterval
 }
