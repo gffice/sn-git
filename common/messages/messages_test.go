@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -151,6 +152,7 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			offer    string
 			data     string
 			relayURL string
+			nextPoll time.Time
 			err      error
 		}{
 			{
@@ -162,6 +164,12 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 				offer:    "fake offer",
 				data:     `{"Status":"client match","Offer":"fake offer","NAT":"unknown", "RelayURL":"wss://snowflake.torproject.org/proxy"}`,
 				relayURL: "wss://snowflake.torproject.org/proxy",
+				err:      nil,
+			},
+			{
+				offer:    "fake offer",
+				data:     `{"Status":"client match","Offer":"fake offer","NAT":"unknown", "NextPoll":"2026-02-10T00:00:00Z"}`,
+				nextPoll: time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
 				err:      nil,
 			},
 			{
@@ -185,6 +193,7 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			if err == nil {
 				So(req.Offer, ShouldResemble, test.offer)
 				So(req.RelayURL, ShouldResemble, test.relayURL)
+				So(req.NextPoll, ShouldResemble, test.nextPoll)
 			}
 		}
 
@@ -194,9 +203,10 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 func TestEncodeProxyPollResponse(t *testing.T) {
 	Convey("Context", t, func() {
 		resp := &ProxyPollResponse{
-			Offer:  "fake offer",
-			Status: ProxyClientMatch,
-			NAT:    "restricted",
+			Offer:    "fake offer",
+			Status:   ProxyClientMatch,
+			NAT:      "restricted",
+			NextPoll: time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
 		}
 		b, err := resp.Encode()
 		So(err, ShouldBeNil)

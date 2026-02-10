@@ -474,7 +474,7 @@ client-sqs-ips
 				p.offerChannel <- &ClientOffer{sdp: []byte("fake offer"), fingerprint: defaultBridge[:]}
 				<-done
 				So(w.Code, ShouldEqual, http.StatusOK)
-				So(w.Body.String(), ShouldEqual, `{"Status":"client match","Offer":"fake offer","NAT":"","RelayURL":"wss://snowflake.torproject.net/"}`)
+				So(w.Body.String(), ShouldEqual, `{"Status":"client match","Offer":"fake offer","NAT":"","NextPoll":"0001-01-01T00:00:00Z","RelayURL":"wss://snowflake.torproject.net/"}`)
 			})
 
 			Convey("return empty 200 OK when no client offer is available.", func() {
@@ -487,7 +487,7 @@ client-sqs-ips
 				// nil means timeout
 				p.offerChannel <- nil
 				<-done
-				So(w.Body.String(), ShouldEqual, `{"Status":"no match","Offer":"","NAT":"","RelayURL":""}`)
+				So(w.Body.String(), ShouldEqual, `{"Status":"no match","Offer":"","NAT":"","NextPoll":"0001-01-01T00:00:00Z","RelayURL":""}`)
 				So(w.Code, ShouldEqual, http.StatusOK)
 			})
 		})
@@ -639,7 +639,7 @@ client-sqs-ips
 
 			<-polled
 			So(wP.Code, ShouldEqual, http.StatusOK)
-			So(wP.Body.String(), ShouldResemble, fmt.Sprintf(`{"Status":"client match","Offer":%#q,"NAT":"unknown","RelayURL":"wss://snowflake.torproject.net/"}`, sdp))
+			So(wP.Body.String(), ShouldResemble, fmt.Sprintf(`{"Status":"client match","Offer":%#q,"NAT":"unknown","NextPoll":"0001-01-01T00:00:00Z","RelayURL":"wss://snowflake.torproject.net/"}`, sdp))
 			So(ctx.idToSnowflake[sid], ShouldNotBeNil)
 
 			// Follow up with the answer request afterwards

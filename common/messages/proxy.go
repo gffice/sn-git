@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/nat"
 )
@@ -182,9 +183,10 @@ const (
 )
 
 type ProxyPollResponse struct {
-	Status string
-	Offer  string
-	NAT    string
+	Status   string
+	Offer    string
+	NAT      string
+	NextPoll time.Time
 
 	RelayURL string
 }
