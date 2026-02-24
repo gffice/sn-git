@@ -43,7 +43,7 @@ import (
 	"github.com/pion/ice/v4"
 
 	"github.com/gorilla/websocket"
-	"github.com/pion/transport/v3/stdnet"
+	"github.com/pion/transport/v4/stdnet"
 	"github.com/pion/webrtc/v4"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/constants"
