@@ -508,7 +508,13 @@ func (sf *SnowflakeProxy) makePeerConnectionFromOffer(
 
 			country := ""
 			if sf.GeoIP != nil && !reflect.ValueOf(sf.GeoIP).IsNil() && remoteIP != nil {
-				country, _ = sf.GeoIP.GetCountryByAddr(remoteIP)
+				if result, ok := sf.GeoIP.GetCountryByAddr(remoteIP); ok {
+					country = result
+				} else {
+					// GeoIP can return "??", true but it also can return "", false when it fails to find the country for an IP address.
+					// In that case we also want to log "??" as the country.
+					country = "??"
+				}
 			}
 			sf.EventDispatcher.OnNewSnowflakeEvent(event.EventOnProxyConnectionOver{Country: country})
 
