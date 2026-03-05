@@ -26,6 +26,8 @@ SOFTWARE.
 package task
 
 import (
+	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -84,6 +86,9 @@ func (t *Periodic) checkedExecute() error {
 
 // Start implements common.Runnable.
 func (t *Periodic) Start() error {
+	if t.Interval <= 0 {
+		return fmt.Errorf("invalid interval of %d", t.Interval)
+	}
 	t.access.Lock()
 	if t.running {
 		t.access.Unlock()
@@ -104,7 +109,10 @@ func (t *Periodic) Start() error {
 
 func (t *Periodic) WaitThenStart() {
 	time.AfterFunc(t.Interval, func() {
-		t.Start()
+		err := t.Start()
+		if err != nil {
+			log.Printf("Periodic task failed: %s", err.Error())
+		}
 	})
 }
 

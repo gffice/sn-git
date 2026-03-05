@@ -169,7 +169,8 @@ type SnowflakeProxy struct {
 	EventDispatcher event.SnowflakeEventDispatcher
 	shutdown        chan struct{}
 
-	// SummaryInterval is the time interval at which proxy stats will be logged
+	// SummaryInterval is the time interval at which proxy stats will be logged.
+	// A duration of 0 will disable periodic summary statistics.
 	SummaryInterval time.Duration
 
 	// GeoIP will be used to detect the country of the clients if provided
@@ -787,8 +788,11 @@ func (sf *SnowflakeProxy) Start() error {
 	}
 
 	sf.bytesLogger = newBytesSyncLogger()
-	sf.periodicProxyStats = newPeriodicProxyStats(sf.SummaryInterval, sf.EventDispatcher, sf.bytesLogger)
-	sf.EventDispatcher.AddSnowflakeEventListener(sf.periodicProxyStats)
+
+	if sf.SummaryInterval > 0 {
+		sf.periodicProxyStats = newPeriodicProxyStats(sf.SummaryInterval, sf.EventDispatcher, sf.bytesLogger)
+		sf.EventDispatcher.AddSnowflakeEventListener(sf.periodicProxyStats)
+	}
 
 	broker, err = newSignalingServer(sf.BrokerURL)
 	if err != nil {
