@@ -1,6 +1,9 @@
+Changes in version v2.12.1 - 2026-03-10
+- Fix release pipeline
+
 Changes in version v2.12.0 - 2026-03-10
 - Issue 40524: Disable periodic proxy stats if SummaryInterval is 0
-- Update proxy README with v2.11.0 usage 
+- Update proxy README with v2.11.0 usage
 - Issue 40510: Set country code to ?? if geoip returns false in proxy
 - Issue 40505: Update image path to use nickfedor fork of watchtower
 - Update pion stack with security fix and performance increase
