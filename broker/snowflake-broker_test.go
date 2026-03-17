@@ -80,6 +80,14 @@ func createProxyAnswer(sdp, sid string) (*bytes.Reader, error) {
 	return answer, nil
 }
 
+func addFakeSnowflake(ctx *BrokerContext) *Snowflake {
+	s := NewSnowflake("fake", "", NATUnrestricted, 0)
+	pool := ctx.GetPool(s)
+	pool.Push(s)
+	ctx.idToSnowflake[s.id] = s
+	return s
+}
+
 func decodeAMPArmorToString(r io.Reader) (string, error) {
 	dec, err := amp.NewArmorDecoder(r)
 	if err != nil {
@@ -103,7 +111,7 @@ func TestBroker(t *testing.T) {
 		Convey("Adds Snowflake", func() {
 			So(ctx.unrestrictedPool.h.Len(), ShouldEqual, 0)
 			So(len(ctx.idToSnowflake), ShouldEqual, 0)
-			ctx.AddSnowflake(NewSnowflake("foo", "", NATUnrestricted, 0))
+			addFakeSnowflake(ctx)
 			So(ctx.unrestrictedPool.h.Len(), ShouldEqual, 1)
 			So(len(ctx.idToSnowflake), ShouldEqual, 1)
 		})
@@ -169,8 +177,7 @@ client-sqs-ips
 			Convey("with a proxy answer if available.", func() {
 				done := make(chan bool)
 				// Prepare a fake proxy to respond with.
-				snowflake := NewSnowflake("test", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				go func() {
 					clientOffers(i, w, r)
 					done <- true
@@ -199,8 +206,7 @@ client-sqs-ips
 			})
 
 			Convey("with unrestricted proxy to unrestricted client if there are no restricted proxies", func() {
-				snowflake := NewSnowflake("test", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				offerData, err := createClientOffer(sdp, NATUnrestricted, "")
 				So(err, ShouldBeNil)
 				r, err := http.NewRequest("POST", "snowflake.broker/client", offerData)
@@ -228,8 +234,7 @@ client-sqs-ips
 					return
 				}
 				done := make(chan bool)
-				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				go func() {
 					clientOffers(i, w, r)
 					// Takes a few seconds here...
@@ -275,8 +280,7 @@ client-sqs-ips
 			Convey("with a proxy answer if available.", func() {
 				done := make(chan bool)
 				// Prepare a fake proxy to respond with.
-				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				go func() {
 					clientOffers(i, w, r)
 					done <- true
@@ -309,8 +313,7 @@ client-sqs-ips
 					return
 				}
 				done := make(chan bool)
-				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				go func() {
 					clientOffers(i, w, r)
 					// Takes a few seconds here...
@@ -365,8 +368,7 @@ client-sqs-ips
 			Convey("with a proxy answer if available.", func() {
 				done := make(chan bool)
 				// Prepare a fake proxy to respond with.
-				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				go func() {
 					ampClientOffers(i, w, r)
 					done <- true
@@ -401,8 +403,7 @@ client-sqs-ips
 					return
 				}
 				done := make(chan bool)
-				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-				ctx.AddSnowflake(snowflake)
+				snowflake := addFakeSnowflake(ctx)
 				go func() {
 					ampClientOffers(i, w, r)
 					// Takes a few seconds here...
@@ -491,7 +492,9 @@ client-sqs-ips
 		Convey("Responds to proxy answers...", func() {
 			done := make(chan bool)
 			s := NewSnowflake(sid, "", NATUnrestricted, 0)
-			ctx.AddSnowflake(s)
+			p := ctx.GetPool(s)
+			p.Push(s)
+			ctx.idToSnowflake[s.id] = s
 			w := httptest.NewRecorder()
 
 			data, err := createProxyAnswer(sdp, sid)
@@ -611,7 +614,9 @@ client-sqs-ips
 			p := <-ctx.proxyPolls
 			So(p.id, ShouldEqual, "ymbcCMto7KHNGYlp")
 			s := NewSnowflake(p.id, "", NATUnrestricted, 0)
-			ctx.AddSnowflake(s)
+			pool := ctx.GetPool(s)
+			pool.Push(s)
+			ctx.idToSnowflake[s.id] = s
 			go func() {
 				offer := <-s.offerChannel
 				p.offerChannel <- offer
@@ -859,8 +864,7 @@ snowflake-ips-nat-unknown 0
 			So(err, ShouldBeNil)
 
 			// Prepare a fake proxy to respond with.
-			snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-			ctx.AddSnowflake(snowflake)
+			snowflake := addFakeSnowflake(ctx)
 			go func() {
 				clientOffers(i, w, r)
 				done <- true

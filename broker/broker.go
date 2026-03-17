@@ -116,7 +116,11 @@ func (ctx *BrokerContext) RequestOffer(id string, proxyType string, natType stri
 func (ctx *BrokerContext) Broker() {
 	for request := range ctx.proxyPolls {
 		snowflake := NewSnowflake(request.id, request.proxyType, request.natType, request.clients)
-		ctx.AddSnowflake(snowflake)
+		pool := ctx.GetPool(snowflake)
+		pool.Push(snowflake)
+		ctx.snowflakeLock.Lock()
+		ctx.idToSnowflake[snowflake.id] = snowflake
+		ctx.snowflakeLock.Unlock()
 		// Wait for a client to avail an offer to the snowflake.
 		go func(request *ProxyPoll) {
 			select {
@@ -124,11 +128,7 @@ func (ctx *BrokerContext) Broker() {
 				request.offerChannel <- offer
 			case <-time.After(time.Second * ProxyTimeout):
 				// This snowflake is no longer available to serve clients.
-				if request.natType == NATUnrestricted {
-					ctx.unrestrictedPool.Remove(snowflake)
-				} else {
-					ctx.restrictedPool.Remove(snowflake)
-				}
+				pool.Remove(snowflake)
 				ctx.snowflakeLock.Lock()
 				delete(ctx.idToSnowflake, snowflake.id)
 				ctx.snowflakeLock.Unlock()
@@ -138,18 +138,11 @@ func (ctx *BrokerContext) Broker() {
 	}
 }
 
-// Add a Snowflake to the pool.
-// Required to keep track of proxies between providing them
-// with an offer and awaiting their second POST with an answer.
-func (ctx *BrokerContext) AddSnowflake(snowflake *Snowflake) {
+func (ctx *BrokerContext) GetPool(snowflake *Snowflake) *SnowflakePool {
 	if snowflake.natType == NATUnrestricted {
-		ctx.unrestrictedPool.Push(snowflake)
-	} else {
-		ctx.restrictedPool.Push(snowflake)
+		return ctx.unrestrictedPool
 	}
-	ctx.snowflakeLock.Lock()
-	ctx.idToSnowflake[snowflake.id] = snowflake
-	ctx.snowflakeLock.Unlock()
+	return ctx.restrictedPool
 }
 
 func (ctx *BrokerContext) InstallBridgeListProfile(reader io.Reader) error {

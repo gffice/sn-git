@@ -144,7 +144,8 @@ func TestSQS(t *testing.T) {
 							n := numTimes.Add(1)
 							if n == 1 {
 								snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
-								ipcCtx.AddSnowflake(snowflake)
+								pool := ipcCtx.GetPool(snowflake)
+								pool.Push(snowflake)
 								go func(c C) {
 									<-snowflake.offerChannel
 									snowflake.answerChannel <- "fake answer"
