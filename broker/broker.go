@@ -38,8 +38,8 @@ import (
 )
 
 type BrokerContext struct {
-	snowflakes           *SnowflakeHeap
-	restrictedSnowflakes *SnowflakeHeap
+	unrestrictedPool *SnowflakeHeap
+	restrictedPool   *SnowflakeHeap
 	// Maps keeping track of snowflakeIDs required to match SDP answers from
 	// the second http POST. Restricted snowflakes can only be matched up with
 	// clients behind an unrestricted NAT.
@@ -61,8 +61,8 @@ func NewBrokerContext(
 	metricsLogger *log.Logger,
 	allowedRelayPattern string,
 ) *BrokerContext {
-	snowflakes := new(SnowflakeHeap)
-	heap.Init(snowflakes)
+	usnowflakes := new(SnowflakeHeap)
+	heap.Init(usnowflakes)
 	rSnowflakes := new(SnowflakeHeap)
 	heap.Init(rSnowflakes)
 	metrics, err := NewMetrics(metricsLogger)
@@ -82,13 +82,13 @@ func NewBrokerContext(
 	bridgeListHolder.LoadBridgeInfo(bytes.NewReader([]byte(DefaultBridges)))
 
 	return &BrokerContext{
-		snowflakes:           snowflakes,
-		restrictedSnowflakes: rSnowflakes,
-		idToSnowflake:        make(map[string]*Snowflake),
-		proxyPolls:           make(chan *ProxyPoll),
-		metrics:              metrics,
-		bridgeList:           bridgeListHolder,
-		allowedRelayPattern:  allowedRelayPattern,
+		unrestrictedPool:    usnowflakes,
+		restrictedPool:      rSnowflakes,
+		idToSnowflake:       make(map[string]*Snowflake),
+		proxyPolls:          make(chan *ProxyPoll),
+		metrics:             metrics,
+		bridgeList:          bridgeListHolder,
+		allowedRelayPattern: allowedRelayPattern,
 	}
 }
 
@@ -133,9 +133,9 @@ func (ctx *BrokerContext) Broker() {
 				defer ctx.snowflakeLock.Unlock()
 				if snowflake.index != -1 {
 					if request.natType == NATUnrestricted {
-						heap.Remove(ctx.snowflakes, snowflake.index)
+						heap.Remove(ctx.unrestrictedPool, snowflake.index)
 					} else {
-						heap.Remove(ctx.restrictedSnowflakes, snowflake.index)
+						heap.Remove(ctx.restrictedPool, snowflake.index)
 					}
 					ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": request.natType, "type": request.proxyType}).Dec()
 					delete(ctx.idToSnowflake, snowflake.id)
@@ -159,9 +159,9 @@ func (ctx *BrokerContext) AddSnowflake(id string, proxyType string, natType stri
 	snowflake.answerChannel = make(chan string)
 	ctx.snowflakeLock.Lock()
 	if natType == NATUnrestricted {
-		heap.Push(ctx.snowflakes, snowflake)
+		heap.Push(ctx.unrestrictedPool, snowflake)
 	} else {
-		heap.Push(ctx.restrictedSnowflakes, snowflake)
+		heap.Push(ctx.restrictedPool, snowflake)
 	}
 	ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": natType, "type": proxyType}).Inc()
 	ctx.idToSnowflake[id] = snowflake

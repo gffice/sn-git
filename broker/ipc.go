@@ -241,12 +241,12 @@ func (i *IPC) matchSnowflake(natType string) *Snowflake {
 	defer i.ctx.snowflakeLock.Unlock()
 
 	// Proiritize known restricted snowflakes for unrestricted clients
-	if natType == NATUnrestricted && i.ctx.restrictedSnowflakes.Len() > 0 {
-		return heap.Pop(i.ctx.restrictedSnowflakes).(*Snowflake)
+	if natType == NATUnrestricted && i.ctx.restrictedPool.Len() > 0 {
+		return heap.Pop(i.ctx.restrictedPool).(*Snowflake)
 	}
 
-	if i.ctx.snowflakes.Len() > 0 {
-		return heap.Pop(i.ctx.snowflakes).(*Snowflake)
+	if i.ctx.unrestrictedPool.Len() > 0 {
+		return heap.Pop(i.ctx.unrestrictedPool).(*Snowflake)
 	}
 
 	return nil
