@@ -115,8 +115,8 @@ func (ctx *BrokerContext) RequestOffer(id string, proxyType string, natType stri
 // client offer or nil on timeout / none are available.
 func (ctx *BrokerContext) Broker() {
 	for request := range ctx.proxyPolls {
+		pool := ctx.GetPool(request)
 		snowflake := NewSnowflake(request.id, request.proxyType, request.natType, request.clients)
-		pool := ctx.GetPool(snowflake)
 		pool.Push(snowflake)
 		ctx.snowflakeLock.Lock()
 		ctx.idToSnowflake[snowflake.id] = snowflake
@@ -138,8 +138,8 @@ func (ctx *BrokerContext) Broker() {
 	}
 }
 
-func (ctx *BrokerContext) GetPool(snowflake *Snowflake) *SnowflakePool {
-	if snowflake.natType == NATUnrestricted {
+func (ctx *BrokerContext) GetPool(poll *ProxyPoll) *SnowflakePool {
+	if poll.natType == NATUnrestricted {
 		return ctx.unrestrictedPool
 	}
 	return ctx.restrictedPool

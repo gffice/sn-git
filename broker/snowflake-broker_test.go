@@ -82,7 +82,7 @@ func createProxyAnswer(sdp, sid string) (*bytes.Reader, error) {
 
 func addFakeSnowflake(ctx *BrokerContext) *Snowflake {
 	s := NewSnowflake("fake", "", NATUnrestricted, 0)
-	pool := ctx.GetPool(s)
+	pool := ctx.GetPool(&ProxyPoll{natType: NATUnrestricted})
 	pool.Push(s)
 	ctx.idToSnowflake[s.id] = s
 	return s
@@ -492,7 +492,7 @@ client-sqs-ips
 		Convey("Responds to proxy answers...", func() {
 			done := make(chan bool)
 			s := NewSnowflake(sid, "", NATUnrestricted, 0)
-			p := ctx.GetPool(s)
+			p := ctx.GetPool(&ProxyPoll{natType: NATUnrestricted})
 			p.Push(s)
 			ctx.idToSnowflake[s.id] = s
 			w := httptest.NewRecorder()
@@ -614,7 +614,7 @@ client-sqs-ips
 			p := <-ctx.proxyPolls
 			So(p.id, ShouldEqual, "ymbcCMto7KHNGYlp")
 			s := NewSnowflake(p.id, "", NATUnrestricted, 0)
-			pool := ctx.GetPool(s)
+			pool := ctx.GetPool(&ProxyPoll{natType: NATUnrestricted})
 			pool.Push(s)
 			ctx.idToSnowflake[s.id] = s
 			go func() {
