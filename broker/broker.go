@@ -97,16 +97,11 @@ type ProxyPoll struct {
 
 // Registers a Snowflake and waits for some Client to send an offer,
 // as part of the polling logic of the proxy handler.
-func (ctx *BrokerContext) RequestOffer(id string, proxyType string, natType string, clients int) *ClientOffer {
-	request := new(ProxyPoll)
-	request.id = id
-	request.proxyType = proxyType
-	request.natType = natType
-	request.clients = clients
-	request.offerChannel = make(chan *ClientOffer)
-	ctx.proxyPolls <- request
+func (ctx *BrokerContext) RequestOffer(poll *ProxyPoll) *ClientOffer {
+	poll.offerChannel = make(chan *ClientOffer)
+	ctx.proxyPolls <- poll
 	// Block until an offer is available, or timeout which sends a nil offer.
-	offer := <-request.offerChannel
+	offer := <-poll.offerChannel
 	return offer
 }
 

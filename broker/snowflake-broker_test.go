@@ -138,7 +138,10 @@ func TestBroker(t *testing.T) {
 		Convey("Request an offer from the Snowflake Heap", func() {
 			done := make(chan *ClientOffer)
 			go func() {
-				offer := ctx.RequestOffer("test", "", NATUnrestricted, 0)
+				offer := ctx.RequestOffer(&ProxyPoll{
+					id:      "test",
+					natType: NATUnrestricted,
+				})
 				done <- offer
 			}()
 			request := <-ctx.proxyPolls

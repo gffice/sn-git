@@ -110,7 +110,12 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 	defer i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Dec()
 
 	// Wait for a client to avail an offer to the snowflake, or timeout if nil.
-	offer := i.ctx.RequestOffer(req.Sid, req.Type, req.NAT, req.Clients)
+	offer := i.ctx.RequestOffer(&ProxyPoll{
+		id:        req.Sid,
+		proxyType: req.Type,
+		natType:   req.NAT,
+		clients:   req.Clients,
+	})
 
 	if offer == nil {
 		i.ctx.metrics.IncrementCounter("proxy-idle")
