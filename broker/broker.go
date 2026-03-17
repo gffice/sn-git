@@ -7,7 +7,6 @@ package main
 
 import (
 	"bytes"
-	"container/heap"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -37,13 +36,13 @@ import (
 )
 
 type BrokerContext struct {
-	unrestrictedPool *SnowflakeHeap
-	restrictedPool   *SnowflakeHeap
+	unrestrictedPool *SnowflakePool
+	restrictedPool   *SnowflakePool
 	// Maps keeping track of snowflakeIDs required to match SDP answers from
 	// the second http POST. Restricted snowflakes can only be matched up with
 	// clients behind an unrestricted NAT.
 	idToSnowflake map[string]*Snowflake
-	// Synchronization for the snowflake map and heap
+	// Synchronization for the snowflake map
 	snowflakeLock sync.Mutex
 	proxyPolls    chan *ProxyPoll
 	metrics       *Metrics
@@ -60,10 +59,6 @@ func NewBrokerContext(
 	metricsLogger *log.Logger,
 	allowedRelayPattern string,
 ) *BrokerContext {
-	usnowflakes := new(SnowflakeHeap)
-	heap.Init(usnowflakes)
-	rSnowflakes := new(SnowflakeHeap)
-	heap.Init(rSnowflakes)
 	metrics, err := NewMetrics(metricsLogger)
 
 	if err != nil {
@@ -81,8 +76,8 @@ func NewBrokerContext(
 	bridgeListHolder.LoadBridgeInfo(bytes.NewReader([]byte(DefaultBridges)))
 
 	return &BrokerContext{
-		unrestrictedPool:    usnowflakes,
-		restrictedPool:      rSnowflakes,
+		unrestrictedPool:    NewSnowflakePool(),
+		restrictedPool:      NewSnowflakePool(),
 		idToSnowflake:       make(map[string]*Snowflake),
 		proxyPolls:          make(chan *ProxyPoll),
 		metrics:             metrics,
@@ -129,32 +124,30 @@ func (ctx *BrokerContext) Broker() {
 				request.offerChannel <- offer
 			case <-time.After(time.Second * ProxyTimeout):
 				// This snowflake is no longer available to serve clients.
-				ctx.snowflakeLock.Lock()
-				defer ctx.snowflakeLock.Unlock()
-				if snowflake.index != -1 {
-					if request.natType == NATUnrestricted {
-						heap.Remove(ctx.unrestrictedPool, snowflake.index)
-					} else {
-						heap.Remove(ctx.restrictedPool, snowflake.index)
-					}
-					delete(ctx.idToSnowflake, snowflake.id)
-					close(request.offerChannel)
+				if request.natType == NATUnrestricted {
+					ctx.unrestrictedPool.Remove(snowflake)
+				} else {
+					ctx.restrictedPool.Remove(snowflake)
 				}
+				ctx.snowflakeLock.Lock()
+				delete(ctx.idToSnowflake, snowflake.id)
+				ctx.snowflakeLock.Unlock()
+				close(request.offerChannel)
 			}
 		}(request)
 	}
 }
 
-// Add a Snowflake to the heap.
+// Add a Snowflake to the pool.
 // Required to keep track of proxies between providing them
 // with an offer and awaiting their second POST with an answer.
 func (ctx *BrokerContext) AddSnowflake(snowflake *Snowflake) {
-	ctx.snowflakeLock.Lock()
 	if snowflake.natType == NATUnrestricted {
-		heap.Push(ctx.unrestrictedPool, snowflake)
+		ctx.unrestrictedPool.Push(snowflake)
 	} else {
-		heap.Push(ctx.restrictedPool, snowflake)
+		ctx.restrictedPool.Push(snowflake)
 	}
+	ctx.snowflakeLock.Lock()
 	ctx.idToSnowflake[snowflake.id] = snowflake
 	ctx.snowflakeLock.Unlock()
 }

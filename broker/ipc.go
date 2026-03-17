@@ -1,7 +1,6 @@
 package main
 
 import (
-	"container/heap"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -239,19 +238,16 @@ func (i *IPC) ClientOffers(arg messages.Arg, response *[]byte) error {
 }
 
 func (i *IPC) matchSnowflake(natType string) *Snowflake {
-	i.ctx.snowflakeLock.Lock()
-	defer i.ctx.snowflakeLock.Unlock()
-
 	// Proiritize known restricted snowflakes for unrestricted clients
-	if natType == NATUnrestricted && i.ctx.restrictedPool.Len() > 0 {
-		return heap.Pop(i.ctx.restrictedPool).(*Snowflake)
+	if natType == NATUnrestricted {
+		snowflake := i.ctx.restrictedPool.Pop()
+		if snowflake != nil {
+			return snowflake
+		}
 	}
 
-	if i.ctx.unrestrictedPool.Len() > 0 {
-		return heap.Pop(i.ctx.unrestrictedPool).(*Snowflake)
-	}
-
-	return nil
+	snowflake := i.ctx.unrestrictedPool.Pop()
+	return snowflake
 }
 
 func (i *IPC) ProxyAnswers(arg messages.Arg, response *[]byte) error {

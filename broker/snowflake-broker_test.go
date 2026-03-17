@@ -101,10 +101,10 @@ func TestBroker(t *testing.T) {
 		i := &IPC{ctx}
 
 		Convey("Adds Snowflake", func() {
-			So(ctx.unrestrictedPool.Len(), ShouldEqual, 0)
+			So(ctx.unrestrictedPool.h.Len(), ShouldEqual, 0)
 			So(len(ctx.idToSnowflake), ShouldEqual, 0)
 			ctx.AddSnowflake(NewSnowflake("foo", "", NATUnrestricted, 0))
-			So(ctx.unrestrictedPool.Len(), ShouldEqual, 1)
+			So(ctx.unrestrictedPool.h.Len(), ShouldEqual, 1)
 			So(len(ctx.idToSnowflake), ShouldEqual, 1)
 		})
 
@@ -118,13 +118,13 @@ func TestBroker(t *testing.T) {
 				close(ctx.proxyPolls)
 			}(ctx)
 			ctx.Broker()
-			So(ctx.unrestrictedPool.Len(), ShouldEqual, 1)
-			snowflake := heap.Pop(ctx.unrestrictedPool).(*Snowflake)
+			So(ctx.unrestrictedPool.h.Len(), ShouldEqual, 1)
+			snowflake := ctx.unrestrictedPool.Pop()
 			snowflake.offerChannel <- &ClientOffer{sdp: []byte("test offer")}
 			offer := <-p.offerChannel
 			So(ctx.idToSnowflake["test"], ShouldNotBeNil)
 			So(offer.sdp, ShouldResemble, []byte("test offer"))
-			So(ctx.unrestrictedPool.Len(), ShouldEqual, 0)
+			So(ctx.unrestrictedPool.h.Len(), ShouldEqual, 0)
 		})
 
 		Convey("Request an offer from the Snowflake Heap", func() {
