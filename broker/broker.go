@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/ptutil/safelog"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/namematcher"
@@ -138,7 +137,6 @@ func (ctx *BrokerContext) Broker() {
 					} else {
 						heap.Remove(ctx.restrictedPool, snowflake.index)
 					}
-					ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": request.natType, "type": request.proxyType}).Dec()
 					delete(ctx.idToSnowflake, snowflake.id)
 					close(request.offerChannel)
 				}
@@ -157,7 +155,6 @@ func (ctx *BrokerContext) AddSnowflake(snowflake *Snowflake) {
 	} else {
 		heap.Push(ctx.restrictedPool, snowflake)
 	}
-	ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": snowflake.natType, "type": snowflake.proxyType}).Inc()
 	ctx.idToSnowflake[snowflake.id] = snowflake
 	ctx.snowflakeLock.Unlock()
 }

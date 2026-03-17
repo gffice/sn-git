@@ -107,6 +107,9 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 
 	var b []byte
 
+	i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Inc()
+	defer i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Dec()
+
 	// Wait for a client to avail an offer to the snowflake, or timeout if nil.
 	offer := i.ctx.RequestOffer(req.Sid, req.Type, req.NAT, req.Clients)
 
@@ -229,7 +232,6 @@ func (i *IPC) ClientOffers(arg messages.Arg, response *[]byte) error {
 	}
 
 	i.ctx.snowflakeLock.Lock()
-	i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": snowflake.natType, "type": snowflake.proxyType}).Dec()
 	delete(i.ctx.idToSnowflake, snowflake.id)
 	i.ctx.snowflakeLock.Unlock()
 
