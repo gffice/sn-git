@@ -103,7 +103,7 @@ func TestBroker(t *testing.T) {
 		Convey("Adds Snowflake", func() {
 			So(ctx.unrestrictedPool.Len(), ShouldEqual, 0)
 			So(len(ctx.idToSnowflake), ShouldEqual, 0)
-			ctx.AddSnowflake("foo", "", NATUnrestricted, 0)
+			ctx.AddSnowflake(NewSnowflake("foo", "", NATUnrestricted, 0))
 			So(ctx.unrestrictedPool.Len(), ShouldEqual, 1)
 			So(len(ctx.idToSnowflake), ShouldEqual, 1)
 		})
@@ -169,7 +169,8 @@ client-sqs-ips
 			Convey("with a proxy answer if available.", func() {
 				done := make(chan bool)
 				// Prepare a fake proxy to respond with.
-				snowflake := ctx.AddSnowflake("test", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("test", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				go func() {
 					clientOffers(i, w, r)
 					done <- true
@@ -198,7 +199,8 @@ client-sqs-ips
 			})
 
 			Convey("with unrestricted proxy to unrestricted client if there are no restricted proxies", func() {
-				snowflake := ctx.AddSnowflake("test", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("test", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				offerData, err := createClientOffer(sdp, NATUnrestricted, "")
 				So(err, ShouldBeNil)
 				r, err := http.NewRequest("POST", "snowflake.broker/client", offerData)
@@ -226,7 +228,8 @@ client-sqs-ips
 					return
 				}
 				done := make(chan bool)
-				snowflake := ctx.AddSnowflake("fake", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				go func() {
 					clientOffers(i, w, r)
 					// Takes a few seconds here...
@@ -272,7 +275,8 @@ client-sqs-ips
 			Convey("with a proxy answer if available.", func() {
 				done := make(chan bool)
 				// Prepare a fake proxy to respond with.
-				snowflake := ctx.AddSnowflake("fake", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				go func() {
 					clientOffers(i, w, r)
 					done <- true
@@ -305,7 +309,8 @@ client-sqs-ips
 					return
 				}
 				done := make(chan bool)
-				snowflake := ctx.AddSnowflake("fake", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				go func() {
 					clientOffers(i, w, r)
 					// Takes a few seconds here...
@@ -360,7 +365,8 @@ client-sqs-ips
 			Convey("with a proxy answer if available.", func() {
 				done := make(chan bool)
 				// Prepare a fake proxy to respond with.
-				snowflake := ctx.AddSnowflake("fake", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				go func() {
 					ampClientOffers(i, w, r)
 					done <- true
@@ -395,7 +401,8 @@ client-sqs-ips
 					return
 				}
 				done := make(chan bool)
-				snowflake := ctx.AddSnowflake("fake", "", NATUnrestricted, 0)
+				snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
+				ctx.AddSnowflake(snowflake)
 				go func() {
 					ampClientOffers(i, w, r)
 					// Takes a few seconds here...
@@ -483,7 +490,8 @@ client-sqs-ips
 
 		Convey("Responds to proxy answers...", func() {
 			done := make(chan bool)
-			s := ctx.AddSnowflake(sid, "", NATUnrestricted, 0)
+			s := NewSnowflake(sid, "", NATUnrestricted, 0)
+			ctx.AddSnowflake(s)
 			w := httptest.NewRecorder()
 
 			data, err := createProxyAnswer(sdp, sid)
@@ -602,7 +610,8 @@ client-sqs-ips
 			// Manually do the Broker goroutine action here for full control.
 			p := <-ctx.proxyPolls
 			So(p.id, ShouldEqual, "ymbcCMto7KHNGYlp")
-			s := ctx.AddSnowflake(p.id, "", NATUnrestricted, 0)
+			s := NewSnowflake(p.id, "", NATUnrestricted, 0)
+			ctx.AddSnowflake(s)
 			go func() {
 				offer := <-s.offerChannel
 				p.offerChannel <- offer
@@ -850,7 +859,8 @@ snowflake-ips-nat-unknown 0
 			So(err, ShouldBeNil)
 
 			// Prepare a fake proxy to respond with.
-			snowflake := ctx.AddSnowflake("fake", "", NATUnrestricted, 0)
+			snowflake := NewSnowflake("fake", "", NATUnrestricted, 0)
+			ctx.AddSnowflake(snowflake)
 			go func() {
 				clientOffers(i, w, r)
 				done <- true

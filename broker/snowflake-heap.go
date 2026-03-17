@@ -18,6 +18,17 @@ type Snowflake struct {
 	index         int
 }
 
+func NewSnowflake(id string, proxyType string, natType string, clients int) *Snowflake {
+	snowflake := new(Snowflake)
+	snowflake.id = id
+	snowflake.clients = clients
+	snowflake.proxyType = proxyType
+	snowflake.natType = natType
+	snowflake.offerChannel = make(chan *ClientOffer)
+	snowflake.answerChannel = make(chan string)
+	return snowflake
+}
+
 // Implements heap.Interface, and holds Snowflakes.
 type SnowflakeHeap []*Snowflake
 
