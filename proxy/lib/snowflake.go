@@ -255,7 +255,14 @@ func (s *SignalingServer) pollOffer(sid string, proxyType string, acceptedRelayP
 
 	numClients := int((tokens.count() / 8) * 8) // Round down to 8
 	currentNATTypeLoaded := getCurrentNATType()
-	body, err := messages.EncodeProxyPollRequestWithRelayPrefix(sid, proxyType, currentNATTypeLoaded, numClients, acceptedRelayPattern)
+	req := messages.ProxyPollRequest{
+		Sid:                  sid,
+		Type:                 proxyType,
+		NAT:                  currentNATTypeLoaded,
+		Clients:              numClients,
+		AcceptedRelayPattern: &acceptedRelayPattern,
+	}
+	body, err := req.Encode()
 	if err != nil {
 		log.Printf("Error encoding poll message: %s", err.Error())
 		return nil, ""
@@ -266,19 +273,19 @@ func (s *SignalingServer) pollOffer(sid string, proxyType string, acceptedRelayP
 		log.Printf("error polling broker: %s", err.Error())
 	}
 
-	offer, _, relayURL, err := messages.DecodePollResponseWithRelayURL(resp)
+	pollResponse, err := messages.DecodeProxyPollResponse(resp)
 	if err != nil {
 		log.Printf("Error reading broker response: %s", err.Error())
 		log.Printf("body: %s", resp)
 		return nil, ""
 	}
-	if offer != "" {
-		offer, err := util.DeserializeSessionDescription(offer)
+	if pollResponse.Offer != "" {
+		offer, err := util.DeserializeSessionDescription(pollResponse.Offer)
 		if err != nil {
 			log.Printf("Error processing session description: %s", err.Error())
 			return nil, ""
 		}
-		return offer, relayURL
+		return offer, pollResponse.RelayURL
 	}
 	return nil, ""
 }
@@ -292,7 +299,11 @@ func (s *SignalingServer) sendAnswer(sid string, pc *webrtc.PeerConnection) erro
 		return err
 	}
 
-	body, err := messages.EncodeAnswerRequest(answer, sid)
+	req := messages.ProxyAnswerRequest{
+		Answer: answer,
+		Sid:    sid,
+	}
+	body, err := req.Encode()
 	if err != nil {
 		return err
 	}
@@ -936,7 +947,11 @@ func (sf *SnowflakeProxy) checkNATType(config webrtc.Configuration, probeURL str
 	}
 
 	// send offer
-	body, err := messages.EncodePollResponse(sdp, true, "")
+	pollResp := messages.ProxyPollResponse{
+		Status: messages.ProxyClientMatch,
+		Offer:  sdp,
+	}
+	body, err := pollResp.Encode()
 	if err != nil {
 		return fmt.Errorf("Error encoding probe message: %w", err)
 	}
@@ -946,12 +961,12 @@ func (sf *SnowflakeProxy) checkNATType(config webrtc.Configuration, probeURL str
 		return fmt.Errorf("Error polling probe: %w", err)
 	}
 
-	sdp, _, err = messages.DecodeAnswerRequest(resp)
+	req, err := messages.DecodeProxyAnswerRequest(resp)
 	if err != nil {
 		return fmt.Errorf("Error reading probe response: %w", err)
 	}
 
-	answer, err := util.DeserializeSessionDescription(sdp)
+	answer, err := util.DeserializeSessionDescription(req.Answer)
 	if err != nil {
 		return fmt.Errorf("Error setting answer: %w", err)
 	}

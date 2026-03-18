@@ -108,12 +108,18 @@ func TestDecodeProxyPollRequest(t *testing.T) {
 				err:       fmt.Errorf(""),
 			},
 		} {
-			sid, proxyType, natType, clients, relayPattern, _, err := DecodeProxyPollRequestWithRelayPrefix([]byte(test.data))
-			So(sid, ShouldResemble, test.sid)
-			So(proxyType, ShouldResemble, test.proxyType)
-			So(natType, ShouldResemble, test.natType)
-			So(clients, ShouldEqual, test.clients)
-			So(relayPattern, ShouldResemble, test.acceptedRelayPattern)
+			req, err := DecodeProxyPollRequest([]byte(test.data))
+			if err == nil {
+				So(req.Sid, ShouldResemble, test.sid)
+				So(req.Type, ShouldResemble, test.proxyType)
+				So(req.NAT, ShouldResemble, test.natType)
+				So(req.Clients, ShouldEqual, test.clients)
+				if test.acceptedRelayPattern != "" {
+					So(*req.AcceptedRelayPattern, ShouldResemble, test.acceptedRelayPattern)
+				} else {
+					So(req.AcceptedRelayPattern, ShouldBeNil)
+				}
+			}
 			So(err, ShouldHaveSameTypeAs, test.err)
 		}
 
@@ -122,13 +128,19 @@ func TestDecodeProxyPollRequest(t *testing.T) {
 
 func TestEncodeProxyPollRequests(t *testing.T) {
 	Convey("Context", t, func() {
-		b, err := EncodeProxyPollRequest("ymbcCMto7KHNGYlp", "standalone", "unknown", 16)
+		req := &ProxyPollRequest{
+			Sid:     "ymbcCMto7KHNGYlp",
+			Type:    "standalone",
+			NAT:     "unknown",
+			Clients: 16,
+		}
+		b, err := req.Encode()
 		So(err, ShouldBeNil)
-		sid, proxyType, natType, clients, err := DecodeProxyPollRequest(b)
-		So(sid, ShouldEqual, "ymbcCMto7KHNGYlp")
-		So(proxyType, ShouldEqual, "standalone")
-		So(natType, ShouldEqual, "unknown")
-		So(clients, ShouldEqual, 16)
+		req, err = DecodeProxyPollRequest(b)
+		So(req.Sid, ShouldEqual, "ymbcCMto7KHNGYlp")
+		So(req.Type, ShouldEqual, "standalone")
+		So(req.NAT, ShouldEqual, "unknown")
+		So(req.Clients, ShouldEqual, 16)
 		So(err, ShouldBeNil)
 	})
 }
@@ -168,10 +180,12 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 				err:   fmt.Errorf(""),
 			},
 		} {
-			offer, _, relayURL, err := DecodePollResponseWithRelayURL([]byte(test.data))
+			req, err := DecodeProxyPollResponse([]byte(test.data))
 			So(err, ShouldHaveSameTypeAs, test.err)
-			So(offer, ShouldResemble, test.offer)
-			So(relayURL, ShouldResemble, test.relayURL)
+			if err == nil {
+				So(req.Offer, ShouldResemble, test.offer)
+				So(req.RelayURL, ShouldResemble, test.relayURL)
+			}
 		}
 
 	})
@@ -179,45 +193,57 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 
 func TestEncodeProxyPollResponse(t *testing.T) {
 	Convey("Context", t, func() {
-		b, err := EncodePollResponse("fake offer", true, "restricted")
+		resp := &ProxyPollResponse{
+			Offer:  "fake offer",
+			Status: ProxyClientMatch,
+			NAT:    "restricted",
+		}
+		b, err := resp.Encode()
 		So(err, ShouldBeNil)
-		offer, natType, err := DecodePollResponse(b)
-		So(offer, ShouldEqual, "fake offer")
-		So(natType, ShouldEqual, "restricted")
+		resp, err = DecodeProxyPollResponse(b)
+		So(resp.Offer, ShouldEqual, "fake offer")
+		So(resp.NAT, ShouldEqual, "restricted")
 		So(err, ShouldBeNil)
 
-		b, err = EncodePollResponse("", false, "unknown")
+		resp = &ProxyPollResponse{
+			Status: ProxyClientNoMatch,
+			NAT:    "unknown",
+		}
+		b, err = resp.Encode()
 		So(err, ShouldBeNil)
-		offer, natType, err = DecodePollResponse(b)
-		So(offer, ShouldEqual, "")
-		So(natType, ShouldEqual, "unknown")
+		resp, err = DecodeProxyPollResponse(b)
+		So(resp.Offer, ShouldEqual, "")
+		So(resp.NAT, ShouldEqual, "unknown")
 		So(err, ShouldBeNil)
 	})
 }
 
 func TestEncodeProxyPollResponseWithProxyURL(t *testing.T) {
 	Convey("Context", t, func() {
-		b, err := EncodePollResponseWithRelayURL("fake offer", true, "restricted", "wss://test/", "")
-		So(err, ShouldBeNil)
-		offer, natType, err := DecodePollResponse(b)
-		So(err, ShouldNotBeNil)
-
-		offer, natType, relay, err := DecodePollResponseWithRelayURL(b)
-		So(offer, ShouldEqual, "fake offer")
-		So(natType, ShouldEqual, "restricted")
-		So(relay, ShouldEqual, "wss://test/")
+		resp := &ProxyPollResponse{
+			Offer:    "fake offer",
+			Status:   ProxyClientMatch,
+			NAT:      "restricted",
+			RelayURL: "wss://test/",
+		}
+		b, err := resp.Encode()
 		So(err, ShouldBeNil)
 
-		b, err = EncodePollResponse("", false, "unknown")
-		So(err, ShouldBeNil)
-		offer, natType, relay, err = DecodePollResponseWithRelayURL(b)
-		So(offer, ShouldEqual, "")
-		So(natType, ShouldEqual, "unknown")
+		resp, err = DecodeProxyPollResponse(b)
+		So(resp.Offer, ShouldEqual, "fake offer")
+		So(resp.NAT, ShouldEqual, "restricted")
+		So(resp.RelayURL, ShouldEqual, "wss://test/")
 		So(err, ShouldBeNil)
 
-		b, err = EncodePollResponseWithRelayURL("fake offer", false, "restricted", "wss://test/", "test error reason")
+		resp = &ProxyPollResponse{
+			Offer:    "fake offer",
+			NAT:      "restricted",
+			RelayURL: "wss://test/",
+			Status:   "test error reason",
+		}
+		b, err = resp.Encode()
 		So(err, ShouldBeNil)
-		offer, natType, relay, err = DecodePollResponseWithRelayURL(b)
+		_, err = DecodeProxyPollResponse(b)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldContainSubstring, "test error reason")
 	})
@@ -255,9 +281,11 @@ func TestDecodeProxyAnswerRequest(t *testing.T) {
 				fmt.Errorf(""),
 			},
 		} {
-			answer, sid, err := DecodeAnswerRequest([]byte(test.data))
-			So(answer, ShouldResemble, test.answer)
-			So(sid, ShouldResemble, test.sid)
+			req, err := DecodeProxyAnswerRequest([]byte(test.data))
+			if err == nil {
+				So(req.Answer, ShouldResemble, test.answer)
+				So(req.Sid, ShouldResemble, test.sid)
+			}
 			So(err, ShouldHaveSameTypeAs, test.err)
 		}
 
@@ -266,11 +294,15 @@ func TestDecodeProxyAnswerRequest(t *testing.T) {
 
 func TestEncodeProxyAnswerRequest(t *testing.T) {
 	Convey("Context", t, func() {
-		b, err := EncodeAnswerRequest("test answer", "test sid")
+		req := &ProxyAnswerRequest{
+			Answer: "test answer",
+			Sid:    "test sid",
+		}
+		b, err := req.Encode()
 		So(err, ShouldBeNil)
-		answer, sid, err := DecodeAnswerRequest(b)
-		So(answer, ShouldEqual, "test answer")
-		So(sid, ShouldEqual, "test sid")
+		req, err = DecodeProxyAnswerRequest(b)
+		So(req.Answer, ShouldEqual, "test answer")
+		So(req.Sid, ShouldEqual, "test sid")
 		So(err, ShouldBeNil)
 	})
 }

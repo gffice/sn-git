@@ -68,7 +68,11 @@ func createClientOffer(sdp, nat, fingerprint string) (*bytes.Reader, error) {
 }
 
 func createProxyAnswer(sdp, sid string) (*bytes.Reader, error) {
-	proxyRequest, err := messages.EncodeAnswerRequest(sdp, sid)
+	req := messages.ProxyAnswerRequest{
+		Sid:    sid,
+		Answer: sdp,
+	}
+	proxyRequest, err := req.Encode()
 	if err != nil {
 		return nil, err
 	}

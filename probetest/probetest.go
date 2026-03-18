@@ -140,18 +140,18 @@ func probeHandler(stunURL string, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	offer, _, err := messages.DecodePollResponse(resp)
+	pollResp, err := messages.DecodeProxyPollResponse(resp)
 	if err != nil {
 		log.Printf("Error reading offer: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if offer == "" {
+	if pollResp.Offer == "" {
 		log.Printf("Error processing session description: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	sdp, err := util.DeserializeSessionDescription(offer)
+	sdp, err := util.DeserializeSessionDescription(pollResp.Offer)
 	if err != nil {
 		log.Printf("Error processing session description: %s", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -186,7 +186,11 @@ func probeHandler(stunURL string, w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	body, err := messages.EncodeAnswerRequest(answer, "stub-sid")
+	req := messages.ProxyAnswerRequest{
+		Answer: answer,
+		Sid:    "stub-sid",
+	}
+	body, err := req.Encode()
 	if err != nil {
 		log.Printf("Error making WebRTC connection: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
