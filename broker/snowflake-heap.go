@@ -4,6 +4,11 @@ Keeping track of pending available snowflake proxies.
 
 package main
 
+import (
+	"container/heap"
+	"sync"
+)
+
 /*
 The Snowflake struct contains a single interaction
 over the offer and answer channels.
@@ -16,6 +21,17 @@ type Snowflake struct {
 	answerChannel chan string
 	clients       int
 	index         int
+}
+
+func NewSnowflake(id string, proxyType string, natType string, clients int) *Snowflake {
+	snowflake := new(Snowflake)
+	snowflake.id = id
+	snowflake.clients = clients
+	snowflake.proxyType = proxyType
+	snowflake.natType = natType
+	snowflake.offerChannel = make(chan *ClientOffer)
+	snowflake.answerChannel = make(chan string)
+	return snowflake
 }
 
 // Implements heap.Interface, and holds Snowflakes.
@@ -49,4 +65,40 @@ func (sh *SnowflakeHeap) Pop() interface{} {
 	snowflake.index = -1
 	*sh = flakes[0 : n-1]
 	return snowflake
+}
+
+type SnowflakePool struct {
+	h    *SnowflakeHeap
+	lock sync.Mutex
+}
+
+func NewSnowflakePool() *SnowflakePool {
+	h := new(SnowflakeHeap)
+	heap.Init(h)
+	return &SnowflakePool{
+		h: h,
+	}
+}
+
+func (sp *SnowflakePool) Push(s *Snowflake) {
+	sp.lock.Lock()
+	defer sp.lock.Unlock()
+	heap.Push(sp.h, s)
+}
+
+func (sp *SnowflakePool) Pop() *Snowflake {
+	sp.lock.Lock()
+	defer sp.lock.Unlock()
+	if sp.h.Len() > 0 {
+		return heap.Pop(sp.h).(*Snowflake)
+	}
+	return nil
+}
+
+func (sp *SnowflakePool) Remove(s *Snowflake) {
+	sp.lock.Lock()
+	defer sp.lock.Unlock()
+	if s.index != -1 {
+		heap.Remove(sp.h, s.index)
+	}
 }

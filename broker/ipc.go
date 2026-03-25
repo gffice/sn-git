@@ -1,7 +1,6 @@
 package main
 
 import (
-	"container/heap"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -107,8 +106,16 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 
 	var b []byte
 
+	i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Inc()
+	defer i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Dec()
+
 	// Wait for a client to avail an offer to the snowflake, or timeout if nil.
-	offer := i.ctx.RequestOffer(req.Sid, req.Type, req.NAT, req.Clients)
+	offer := i.ctx.RequestOffer(&ProxyPoll{
+		id:        req.Sid,
+		proxyType: req.Type,
+		natType:   req.NAT,
+		clients:   req.Clients,
+	})
 
 	if offer == nil {
 		i.ctx.metrics.IncrementCounter("proxy-idle")
@@ -229,7 +236,6 @@ func (i *IPC) ClientOffers(arg messages.Arg, response *[]byte) error {
 	}
 
 	i.ctx.snowflakeLock.Lock()
-	i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": snowflake.natType, "type": snowflake.proxyType}).Dec()
 	delete(i.ctx.idToSnowflake, snowflake.id)
 	i.ctx.snowflakeLock.Unlock()
 
@@ -237,19 +243,16 @@ func (i *IPC) ClientOffers(arg messages.Arg, response *[]byte) error {
 }
 
 func (i *IPC) matchSnowflake(natType string) *Snowflake {
-	i.ctx.snowflakeLock.Lock()
-	defer i.ctx.snowflakeLock.Unlock()
-
 	// Proiritize known restricted snowflakes for unrestricted clients
-	if natType == NATUnrestricted && i.ctx.restrictedSnowflakes.Len() > 0 {
-		return heap.Pop(i.ctx.restrictedSnowflakes).(*Snowflake)
+	if natType == NATUnrestricted {
+		snowflake := i.ctx.restrictedPool.Pop()
+		if snowflake != nil {
+			return snowflake
+		}
 	}
 
-	if i.ctx.snowflakes.Len() > 0 {
-		return heap.Pop(i.ctx.snowflakes).(*Snowflake)
-	}
-
-	return nil
+	snowflake := i.ctx.unrestrictedPool.Pop()
+	return snowflake
 }
 
 func (i *IPC) ProxyAnswers(arg messages.Arg, response *[]byte) error {
