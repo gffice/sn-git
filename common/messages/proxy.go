@@ -54,7 +54,8 @@ HTTP 200 OK
 HTTP 200 OK
 
 {
-    Status: "no match"
+  Status: "no match"
+  NextPoll: [number of seconds until the proxy's next poll]
 }
 
 3) If the request is malformed:
