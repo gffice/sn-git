@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -152,7 +151,7 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			offer    string
 			data     string
 			relayURL string
-			nextPoll time.Time
+			nextPoll uint
 			err      error
 		}{
 			{
@@ -168,8 +167,8 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			},
 			{
 				offer:    "fake offer",
-				data:     `{"Status":"client match","Offer":"fake offer","NAT":"unknown", "NextPoll":"2026-02-10T00:00:00Z"}`,
-				nextPoll: time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
+				data:     `{"Status":"client match","Offer":"fake offer","NAT":"unknown", "NextPoll":600}`,
+				nextPoll: 600,
 				err:      nil,
 			},
 			{
@@ -206,7 +205,7 @@ func TestEncodeProxyPollResponse(t *testing.T) {
 			Offer:    "fake offer",
 			Status:   ProxyClientMatch,
 			NAT:      "restricted",
-			NextPoll: time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
+			NextPoll: 600,
 		}
 		b, err := resp.Encode()
 		So(err, ShouldBeNil)

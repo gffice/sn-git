@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/nat"
 )
@@ -48,6 +47,7 @@ HTTP 200 OK
   },
   NAT: ["unknown"|"restricted"|"unrestricted"],
   RelayURL: [the WebSocket URL proxy should connect to relay Snowflake traffic]
+  NextPoll: [number of seconds until the proxy's next poll]
 }
 
 2) If a client is not matched:
@@ -186,7 +186,7 @@ type ProxyPollResponse struct {
 	Status   string
 	Offer    string
 	NAT      string
-	NextPoll time.Time
+	NextPoll uint
 
 	RelayURL string
 }
