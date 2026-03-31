@@ -506,10 +506,8 @@ client-sqs-ips
 				So(w.Code, ShouldEqual, http.StatusOK)
 				resp, _ := messages.DecodeProxyPollResponse(w.Body.Bytes())
 				pollInterval := ctx.GetPool(p).GetPollInterval()
-				expectedNextPoll := time.Now().Add(pollInterval)
 				// Check to make sure that we're within 1 second
-				So(expectedNextPoll.Sub(resp.NextPoll).Milliseconds(),
-					ShouldBeLessThan, 1000)
+				So(resp.NextPoll, ShouldEqual, pollInterval)
 			})
 
 		})
