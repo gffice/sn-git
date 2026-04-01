@@ -859,7 +859,7 @@ func (sf *SnowflakeProxy) Start() error {
 	err = sf.checkNATType(config, sf.NATProbeURL)
 	if err != nil {
 		// non-fatal error. Log it and continue
-		log.Printf(err.Error())
+		log.Printf("Error checking NAT type: %s", err.Error())
 		setCurrentNATType(NATUnknown)
 	}
 	sf.EventDispatcher.OnNewSnowflakeEvent(event.EventOnCurrentNATTypeDetermined{CurNATType: getCurrentNATType()})
