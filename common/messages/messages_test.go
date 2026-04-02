@@ -151,6 +151,7 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			offer    string
 			data     string
 			relayURL string
+			nextPoll uint
 			err      error
 		}{
 			{
@@ -162,6 +163,12 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 				offer:    "fake offer",
 				data:     `{"Status":"client match","Offer":"fake offer","NAT":"unknown", "RelayURL":"wss://snowflake.torproject.org/proxy"}`,
 				relayURL: "wss://snowflake.torproject.org/proxy",
+				err:      nil,
+			},
+			{
+				offer:    "fake offer",
+				data:     `{"Status":"client match","Offer":"fake offer","NAT":"unknown", "NextPoll":600}`,
+				nextPoll: 600,
 				err:      nil,
 			},
 			{
@@ -185,6 +192,7 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			if err == nil {
 				So(req.Offer, ShouldResemble, test.offer)
 				So(req.RelayURL, ShouldResemble, test.relayURL)
+				So(req.NextPoll, ShouldResemble, test.nextPoll)
 			}
 		}
 
@@ -194,9 +202,10 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 func TestEncodeProxyPollResponse(t *testing.T) {
 	Convey("Context", t, func() {
 		resp := &ProxyPollResponse{
-			Offer:  "fake offer",
-			Status: ProxyClientMatch,
-			NAT:    "restricted",
+			Offer:    "fake offer",
+			Status:   ProxyClientMatch,
+			NAT:      "restricted",
+			NextPoll: 600,
 		}
 		b, err := resp.Encode()
 		So(err, ShouldBeNil)

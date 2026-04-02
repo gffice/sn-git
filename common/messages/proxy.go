@@ -47,13 +47,15 @@ HTTP 200 OK
   },
   NAT: ["unknown"|"restricted"|"unrestricted"],
   RelayURL: [the WebSocket URL proxy should connect to relay Snowflake traffic]
+  NextPoll: [number of seconds until the proxy's next poll]
 }
 
 2) If a client is not matched:
 HTTP 200 OK
 
 {
-    Status: "no match"
+  Status: "no match"
+  NextPoll: [number of seconds until the proxy's next poll]
 }
 
 3) If the request is malformed:
@@ -182,9 +184,10 @@ const (
 )
 
 type ProxyPollResponse struct {
-	Status string
-	Offer  string
-	NAT    string
+	Status   string
+	Offer    string
+	NAT      string
+	NextPoll uint
 
 	RelayURL string
 }

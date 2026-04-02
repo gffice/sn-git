@@ -68,15 +68,17 @@ func (sh *SnowflakeHeap) Pop() interface{} {
 }
 
 type SnowflakePool struct {
-	h    *SnowflakeHeap
-	lock sync.Mutex
+	h            *SnowflakeHeap
+	lock         sync.Mutex
+	pollInterval uint //interval until next proxy poll in seconds
 }
 
 func NewSnowflakePool() *SnowflakePool {
 	h := new(SnowflakeHeap)
 	heap.Init(h)
 	return &SnowflakePool{
-		h: h,
+		h:            h,
+		pollInterval: 20,
 	}
 }
 
@@ -101,4 +103,9 @@ func (sp *SnowflakePool) Remove(s *Snowflake) {
 	if s.index != -1 {
 		heap.Remove(sp.h, s.index)
 	}
+}
+
+// GetPollInterval returns the interval between proxy polls in seconds
+func (sp *SnowflakePool) GetPollInterval() uint {
+	return sp.pollInterval
 }

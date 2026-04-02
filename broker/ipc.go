@@ -17,6 +17,8 @@ const (
 	ClientTimeout = constants.BrokerClientTimeout
 	ProxyTimeout  = 10
 
+	MaxPollInterval = 60 // Default max poll interval in seconds
+
 	NATUnknown      = "unknown"
 	NATRestricted   = "restricted"
 	NATUnrestricted = "unrestricted"
@@ -85,7 +87,8 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		i.ctx.metrics.promMetrics.ProxyPollRejectedForRelayURLExtensionTotal.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Inc()
 
 		resp := messages.ProxyPollResponse{
-			Status: "incorrect relay pattern",
+			Status:   "incorrect relay pattern",
+			NextPoll: MaxPollInterval,
 		}
 		b, err := resp.Encode()
 		*response = b
@@ -110,19 +113,22 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 	defer i.ctx.metrics.promMetrics.AvailableProxies.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Dec()
 
 	// Wait for a client to avail an offer to the snowflake, or timeout if nil.
-	offer := i.ctx.RequestOffer(&ProxyPoll{
+	poll := &ProxyPoll{
 		id:        req.Sid,
 		proxyType: req.Type,
 		natType:   req.NAT,
 		clients:   req.Clients,
-	})
+	}
+	offer := i.ctx.RequestOffer(poll)
+	pollInterval := i.ctx.GetPool(poll).GetPollInterval()
 
 	if offer == nil {
 		i.ctx.metrics.IncrementCounter("proxy-idle")
 		i.ctx.metrics.promMetrics.ProxyPollTotal.With(prometheus.Labels{"nat": req.NAT, "type": req.Type, "status": "idle"}).Inc()
 
 		resp := messages.ProxyPollResponse{
-			Status: messages.ProxyClientNoMatch,
+			Status:   messages.ProxyClientNoMatch,
+			NextPoll: pollInterval,
 		}
 		b, err = resp.Encode()
 		if err != nil {
@@ -149,6 +155,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		Status:   messages.ProxyClientMatch,
 		NAT:      offer.natType,
 		RelayURL: relayURL,
+		NextPoll: pollInterval,
 	}
 	b, err = resp.Encode()
 	if err != nil {
