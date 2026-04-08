@@ -6,7 +6,7 @@ import (
 )
 
 var version = func() string {
-	ver := "2.12.1"
+	ver := "2.13.0"
 	if info, ok := debug.ReadBuildInfo(); ok {
 		var revision string
 		var modified string
