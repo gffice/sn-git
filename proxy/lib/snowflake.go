@@ -176,7 +176,7 @@ type SnowflakeProxy struct {
 	// GeoIP will be used to detect the country of the clients if provided
 	GeoIP GeoIP
 
-	// CovertDTLSConfig is used for configuration for randomization or mimicking (Firefox/Chrome browser) of DTLS Client Hello messages. String can be "randomize", "mimic" or "randomizemimc"
+	// CovertDTLSConfig is used for configuration for randomization or mimicking (Firefox/Chrome browser) of DTLS Client Hello messages.
 	CovertDTLSConfig covertdtls.CovertDTLSConfig
 
 	periodicProxyStats *periodicProxyStats
