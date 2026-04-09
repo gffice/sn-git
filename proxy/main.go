@@ -52,7 +52,7 @@ func main() {
 	geoipDatabase := flag.String("geoipdb", "/usr/share/tor/geoip", "path to correctly formatted geoip database mapping IPv4 address ranges to country codes")
 	geoip6Database := flag.String("geoip6db", "/usr/share/tor/geoip6", "path to correctly formatted geoip database mapping IPv6 address ranges to country codes")
 	versionFlag := flag.Bool("version", false, "display version info to stderr and quit")
-	covertDTLSConfig := flag.String("covertdtls-config", "", "Configuration of DTLS mimicking and randomization: mimic, randomize, randomizemimic")
+	covertDTLSConfig := flag.String("covertdtls-config", "randomizemimic", "Configuration of DTLS mimicking and randomization: mimic, randomize, randomizemimic, none. The default is randomizemimic. Set to none to disable.")
 	covertDTLSfingerprint := flag.String("covertdtls-fingerprint", "", "Mimicking of a raw DTLS fingerprint")
 
 	var ephemeralPortsRange []uint16 = []uint16{0, 0}
