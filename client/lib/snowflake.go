@@ -121,7 +121,7 @@ type ClientConfig struct {
 	// CommunicationProxy is the proxy address for network communication
 	CommunicationProxy *url.URL
 	// CovertDTLSConfig is the configuration for randomization or mimicking (Firefox/Chrome browser) of DTLS Client Hello messages.
-	// String can be "randomize", "mimic" or "randomizemimc"
+	// String can be "randomize", "mimic", "randomizemimic" or "disable".
 	CovertDTLSConfig string
 	// CovertDTLSFingerprint is the configuration for mimicking of DTLS 1.2 Client Hello messages.
 	// String should be a hexstring representation of client hello message bytes, the first byte should correspond to the DTLS version in a handshake message.
@@ -175,7 +175,10 @@ func NewSnowflakeClient(config ClientConfig) (*Transport, error) {
 	var covertDTLSConfig covertdtls.CovertDTLSConfig
 
 	if config.CovertDTLSConfig != "" {
-		covertDTLSConfig = covertdtls.ParseConfigString(config.CovertDTLSConfig)
+		covertDTLSConfig, err = covertdtls.ParseCovertDTLSConfigString(config.CovertDTLSConfig)
+		if err != nil {
+			log.Println("Error parsing covertdtls-config, feature has been disabled:", err)
+		}
 		if config.CovertDTLSFingerprint != "" {
 			covertDTLSConfig.Fingerprint = fingerprints.ClientHelloFingerprint(config.CovertDTLSFingerprint)
 		}

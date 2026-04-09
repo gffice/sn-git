@@ -1,6 +1,7 @@
 package covertdtls
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/theodorsm/covert-dtls/pkg/fingerprints"
@@ -11,8 +12,10 @@ const (
 	CovertDTLSConfigRandomize = "randomize"
 	// CovertDTLSConfigMimic is a config string used for CovertDTLSConfig to enable ClientHello mimicking of the latest Chrome or Firefox version.
 	CovertDTLSConfigMimic = "mimic"
-	// CovertDTLSConfigMimic is a config string used for CovertDTLSConfig to enable ClientHello mimicking of a random Chrome or Firefox fingerprint.
+	// CovertDTLSConfigRandomizeMimic is a config string used for CovertDTLSConfig to enable ClientHello mimicking of a random Chrome or Firefox fingerprint.
 	CovertDTLSConfigRandomizeMimic = "randomizemimic"
+	// CovertDTLSConfigDisable is a config string used for CovertDTLSConfig to disable the feature.
+	CovertDTLSConfigDisable = "disable"
 )
 
 // CovertDTLSConfig is used to configure the covert-dtls library for fingerprint-resistance for the DTLS handshake.
@@ -26,11 +29,11 @@ type CovertDTLSConfig struct {
 	Fingerprint fingerprints.ClientHelloFingerprint
 }
 
-// ParseConfigString creates a CovertDTLSConfig from a config string.
-// Valid configurations strings are: mimic, randomize, randomizemimic.
-// Using randomizemimic is recommended for best stability and decent fingerprint-resistance, randomize is less stable.
-// All other strings will return an empty config with every feature disabled.
-func ParseConfigString(str string) CovertDTLSConfig {
+// ParseCovertDTLSConfigString creates a CovertDTLSConfig from a config string.
+// Valid configurations strings are: mimic, randomize, randomizemimic and disable.
+// Using randomizemimic is recommended for best stability and provides fingerprint-resistance against allow-listing.
+// Using randomize is less stable and provides better fingerprint-resistance against block-listing.
+func ParseCovertDTLSConfigString(str string) (CovertDTLSConfig, error) {
 	config := CovertDTLSConfig{}
 	str = strings.ToLower(str)
 	switch str {
@@ -41,8 +44,12 @@ func ParseConfigString(str string) CovertDTLSConfig {
 	case CovertDTLSConfigRandomizeMimic:
 		config.Randomize = true
 		config.Mimic = true
+	case CovertDTLSConfigDisable:
+		config.Randomize = false
+		config.Mimic = false
 	default:
+		return config, errors.New("unknown config string given to ParseCovertDTLSConfigString")
 	}
 
-	return config
+	return config, nil
 }

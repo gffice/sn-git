@@ -182,7 +182,7 @@ func main() {
 	max := flag.Int("max", DefaultSnowflakeCapacity,
 		"capacity for number of multiplexed WebRTC peers")
 	versionFlag := flag.Bool("version", false, "display version info to stderr and quit")
-	covertDTLSConfig := flag.String("covertdtls-config", "", "Configuration of DTLS mimicking and randomization: mimic, randomize, randomizemimic")
+	covertDTLSConfig := flag.String("covertdtls-config", "disable", "Configuration of DTLS mimicking and randomization: mimic, randomize, randomizemimic, disable.")
 	covertDTLSfingerprint := flag.String("covertdtls-fingerprint", "", "Mimicking of a raw DTLS fingerprint")
 
 	// Deprecated
