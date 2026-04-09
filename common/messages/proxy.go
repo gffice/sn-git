@@ -22,6 +22,7 @@ var KnownProxyTypes = map[string]bool{
 	"webext":     true,
 	"badge":      true,
 	"iptproxy":   true,
+	"bloco":      true,
 }
 
 /* Version 1.3 specification:

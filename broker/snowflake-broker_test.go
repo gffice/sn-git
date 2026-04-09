@@ -805,6 +805,9 @@ func TestMetrics(t *testing.T) {
 			So(metricsStr, ShouldContainSubstring, "\nsnowflake-ips-standalone 1\n")
 			So(metricsStr, ShouldContainSubstring, "\nsnowflake-ips-badge 1\n")
 			So(metricsStr, ShouldContainSubstring, "\nsnowflake-ips-webext 1\n")
+			So(metricsStr, ShouldContainSubstring, "\nsnowflake-ips-iptproxy 0\n")
+			So(metricsStr, ShouldContainSubstring, "\nsnowflake-ips-bloco 0\n")
+			So(metricsStr, ShouldNotContainSubstring, "snowflake-ips-unknown")
 			So(metricsStr, ShouldEndWith, `snowflake-ips-total 4
 snowflake-idle-count 8
 snowflake-proxy-poll-with-relay-url-count 8
@@ -858,6 +861,9 @@ client-sqs-ips `)
 			So(buf.String(), ShouldContainSubstring, "\nsnowflake-ips-standalone 0\n")
 			So(buf.String(), ShouldContainSubstring, "\nsnowflake-ips-badge 0\n")
 			So(buf.String(), ShouldContainSubstring, "\nsnowflake-ips-webext 0\n")
+			So(buf.String(), ShouldContainSubstring, "\nsnowflake-ips-iptproxy 0\n")
+			So(buf.String(), ShouldContainSubstring, "\nsnowflake-ips-bloco 0\n")
+			So(buf.String(), ShouldNotContainSubstring, "snowflake-ips-unknown")
 			So(buf.String(), ShouldContainSubstring, `snowflake-ips-total 0
 snowflake-idle-count 0
 snowflake-proxy-poll-with-relay-url-count 0
