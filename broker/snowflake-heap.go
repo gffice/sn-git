@@ -107,5 +107,13 @@ func (sp *SnowflakePool) Remove(s *Snowflake) {
 }
 
 func (sp *SnowflakePool) GetPollInterval() time.Duration {
+	sp.lock.Lock()
+	defer sp.lock.Unlock()
 	return sp.pollInterval
+}
+
+func (sp *SnowflakePool) SetPollInterval(interval time.Duration) {
+	sp.lock.Lock()
+	defer sp.lock.Unlock()
+	sp.pollInterval = interval
 }
