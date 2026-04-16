@@ -867,7 +867,14 @@ func (sf *SnowflakeProxy) Start() error {
 	NatRetestTask := task.Periodic{
 		Interval: sf.NATTypeMeasurementInterval,
 		Execute: func() error {
-			return sf.checkNATType(config, sf.NATProbeURL)
+			prevNATType := getCurrentNATType()
+			if err := sf.checkNATType(config, sf.NATProbeURL); err != nil {
+				return err
+			}
+			if prevNATType != getCurrentNATType() {
+				sf.EventDispatcher.OnNewSnowflakeEvent(event.EventOnCurrentNATTypeDetermined{CurNATType: getCurrentNATType()})
+			}
+			return nil
 		},
 		// Not setting OnError would shut down the periodic task on error by default.
 		OnError: func(err error) {
