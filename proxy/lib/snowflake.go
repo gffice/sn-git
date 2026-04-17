@@ -673,55 +673,57 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 		log.Printf("Error polling broker: %s", err.Error())
 		return
 	}
-	if pollResponse.Offer == "" {
-		return
-	}
-	offer, err := util.DeserializeSessionDescription(pollResponse.Offer)
-	if err != nil {
-		log.Printf("Error deserializing session description: %s", err.Error())
-		return
-	}
-	log.Printf("Received offer from broker: \n\t%s", strings.ReplaceAll(offer.SDP, "\n", "\n\t"))
-
-	if pollResponse.RelayURL != "" {
-		if err := checkIsRelayURLAcceptable(sf.RelayDomainNamePattern, sf.AllowProxyingToPrivateAddresses, sf.AllowNonTLSRelay, pollResponse.RelayURL); err != nil {
-			log.Printf("bad offer from broker: %v", err)
+	go func() {
+		if pollResponse.Offer == "" {
 			return
 		}
-	}
-
-	dataChan := make(chan struct{})
-	dataChannelAdaptor := dataChannelHandlerWithRelayURL{RelayURL: pollResponse.RelayURL, sf: sf}
-	pc, err := sf.makePeerConnectionFromOffer(offer, config, dataChan, dataChannelAdaptor.datachannelHandler)
-	if err != nil {
-		log.Printf("error making WebRTC connection: %s", err)
-		return
-	}
-
-	err = broker.sendAnswer(sid, pc)
-	if err != nil {
-		log.Printf("error sending answer to client through broker: %s", err)
-		if inerr := pc.Close(); inerr != nil {
-			log.Printf("error calling pc.Close: %v", inerr)
+		offer, err := util.DeserializeSessionDescription(pollResponse.Offer)
+		if err != nil {
+			log.Printf("Error deserializing session description: %s", err.Error())
+			return
 		}
-		return
-	}
-	// Set a timeout on peerconnection. If the connection state has not
-	// advanced to PeerConnectionStateConnected in this time,
-	// destroy the peer connection and return the token.
-	select {
-	case <-dataChan:
-		log.Println("Connection successful")
-		connectedToClient = true
-	case <-time.After(dataChannelTimeout):
-		log.Println("Timed out waiting for client to open data channel.")
-		sf.EventDispatcher.OnNewSnowflakeEvent(
-			event.EventOnProxyConnectionFailed{},
-		)
-		if err := pc.Close(); err != nil {
-			log.Printf("error calling pc.Close: %v", err)
+		log.Printf("Received offer from broker: \n\t%s", strings.ReplaceAll(offer.SDP, "\n", "\n\t"))
+
+		if pollResponse.RelayURL != "" {
+			if err := checkIsRelayURLAcceptable(sf.RelayDomainNamePattern, sf.AllowProxyingToPrivateAddresses, sf.AllowNonTLSRelay, pollResponse.RelayURL); err != nil {
+				log.Printf("bad offer from broker: %v", err)
+				return
+			}
 		}
-	}
+
+		dataChan := make(chan struct{})
+		dataChannelAdaptor := dataChannelHandlerWithRelayURL{RelayURL: pollResponse.RelayURL, sf: sf}
+		pc, err := sf.makePeerConnectionFromOffer(offer, config, dataChan, dataChannelAdaptor.datachannelHandler)
+		if err != nil {
+			log.Printf("error making WebRTC connection: %s", err)
+			return
+		}
+
+		err = broker.sendAnswer(sid, pc)
+		if err != nil {
+			log.Printf("error sending answer to client through broker: %s", err)
+			if inerr := pc.Close(); inerr != nil {
+				log.Printf("error calling pc.Close: %v", inerr)
+			}
+			return
+		}
+		// Set a timeout on peerconnection. If the connection state has not
+		// advanced to PeerConnectionStateConnected in this time,
+		// destroy the peer connection and return the token.
+		select {
+		case <-dataChan:
+			log.Println("Connection successful")
+			connectedToClient = true
+		case <-time.After(dataChannelTimeout):
+			log.Println("Timed out waiting for client to open data channel.")
+			sf.EventDispatcher.OnNewSnowflakeEvent(
+				event.EventOnProxyConnectionFailed{},
+			)
+			if err := pc.Close(); err != nil {
+				log.Printf("error calling pc.Close: %v", err)
+			}
+		}
+	}()
 }
 
 // Returns nil if the relayURL is acceptable.
