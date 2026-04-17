@@ -57,9 +57,10 @@ import (
 )
 
 const (
-	DefaultPollInterval = 5 * time.Second
-	DefaultBrokerURL    = "https://snowflake-broker.torproject.net/"
-	DefaultNATProbeURL  = "https://snowflake-broker.torproject.net:8443/probe"
+	DefaultPollInterval    = 5 * time.Second
+	DefaultMinPollInterval = 1 * time.Second
+	DefaultBrokerURL       = "https://snowflake-broker.torproject.net/"
+	DefaultNATProbeURL     = "https://snowflake-broker.torproject.net:8443/probe"
 	// This is rather a "DefaultDefaultRelayURL"
 	DefaultRelayURL  = "wss://snowflake.torproject.net/"
 	DefaultSTUNURL   = "stun:stun.l.google.com:19302,stun:stun.voip.blackberry.com:3478"
@@ -125,7 +126,8 @@ type GeoIP interface {
 // For some more info also see CLI parameter descriptions in README.
 type SnowflakeProxy struct {
 	// How often to ask the broker for a new client
-	PollInterval time.Duration
+	PollInterval    time.Duration
+	MinPollInterval time.Duration
 	// Capacity is the maximum number of clients a Snowflake will serve.
 	// Proxies with a capacity of 0 will accept an unlimited number of clients.
 	Capacity uint
@@ -673,6 +675,12 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 		log.Printf("Error polling broker: %s", err.Error())
 		return
 	}
+	pollInterval := time.Duration(time.Duration(pollResponse.NextPoll) * time.Millisecond)
+	if pollInterval <= 0 {
+		pollInterval = sf.PollInterval
+	}
+	sf.pollTicker.Reset(max(sf.MinPollInterval, pollInterval))
+	log.Printf("Poll interval set to %v", max(sf.MinPollInterval, pollInterval))
 	go func() {
 		if pollResponse.Offer == "" {
 			return
@@ -779,6 +787,9 @@ func (sf *SnowflakeProxy) Start() error {
 	// blank configurations revert to default
 	if sf.PollInterval == 0 {
 		sf.PollInterval = DefaultPollInterval
+	}
+	if sf.MinPollInterval == 0 {
+		sf.MinPollInterval = DefaultMinPollInterval
 	}
 	if sf.BrokerURL == "" {
 		sf.BrokerURL = DefaultBrokerURL
