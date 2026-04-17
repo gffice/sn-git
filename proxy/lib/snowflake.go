@@ -250,7 +250,7 @@ func (s *SignalingServer) Post(path string, payload io.Reader) ([]byte, error) {
 
 // pollOffer communicates the proxy's capabilities with broker
 // and retrieves a compatible SDP offer and relay URL.
-func (s *SignalingServer) pollOffer(sid string, proxyType string, acceptedRelayPattern string) (*webrtc.SessionDescription, string) {
+func (s *SignalingServer) pollOffer(sid string, proxyType string, acceptedRelayPattern string) (*messages.ProxyPollResponse, error) {
 	brokerPath := s.url.ResolveReference(&url.URL{Path: "proxy"})
 
 	numClients := int((tokens.count() / 8) * 8) // Round down to 8
@@ -264,30 +264,19 @@ func (s *SignalingServer) pollOffer(sid string, proxyType string, acceptedRelayP
 	}
 	body, err := req.Encode()
 	if err != nil {
-		log.Printf("Error encoding poll message: %s", err.Error())
-		return nil, ""
+		return nil, err
 	}
 
 	resp, err := s.Post(brokerPath.String(), bytes.NewBuffer(body))
 	if err != nil {
-		log.Printf("error polling broker: %s", err.Error())
+		return nil, err
 	}
 
 	pollResponse, err := messages.DecodeProxyPollResponse(resp)
 	if err != nil {
-		log.Printf("Error reading broker response: %s", err.Error())
-		log.Printf("body: %s", resp)
-		return nil, ""
+		return nil, err
 	}
-	if pollResponse.Offer != "" {
-		offer, err := util.DeserializeSessionDescription(pollResponse.Offer)
-		if err != nil {
-			log.Printf("Error processing session description: %s", err.Error())
-			return nil, ""
-		}
-		return offer, pollResponse.RelayURL
-	}
-	return nil, ""
+	return pollResponse, nil
 }
 
 // sendAnswer encodes an SDP answer, sends it to the broker
@@ -678,21 +667,30 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 		// Otherwise we'll `tokens.ret()` when the connection finishes.
 	}()
 
-	offer, relayURL := broker.pollOffer(sid, sf.ProxyType, sf.RelayDomainNamePattern)
-	if offer == nil {
+	pollResponse, err := broker.pollOffer(sid, sf.ProxyType, sf.RelayDomainNamePattern)
+	if err != nil {
+		log.Printf("Error polling broker: %s", err.Error())
 		return
 	}
-	log.Printf("Received Offer From Broker: \n\t%s", strings.ReplaceAll(offer.SDP, "\n", "\n\t"))
+	if pollResponse.Offer == "" {
+		return
+	}
+	offer, err := util.DeserializeSessionDescription(pollResponse.Offer)
+	if err != nil {
+		log.Printf("Error deserializing session description: %s", err.Error())
+		return
+	}
+	log.Printf("Received offer from broker: \n\t%s", strings.ReplaceAll(offer.SDP, "\n", "\n\t"))
 
-	if relayURL != "" {
-		if err := checkIsRelayURLAcceptable(sf.RelayDomainNamePattern, sf.AllowProxyingToPrivateAddresses, sf.AllowNonTLSRelay, relayURL); err != nil {
+	if pollResponse.RelayURL != "" {
+		if err := checkIsRelayURLAcceptable(sf.RelayDomainNamePattern, sf.AllowProxyingToPrivateAddresses, sf.AllowNonTLSRelay, pollResponse.RelayURL); err != nil {
 			log.Printf("bad offer from broker: %v", err)
 			return
 		}
 	}
 
 	dataChan := make(chan struct{})
-	dataChannelAdaptor := dataChannelHandlerWithRelayURL{RelayURL: relayURL, sf: sf}
+	dataChannelAdaptor := dataChannelHandlerWithRelayURL{RelayURL: pollResponse.RelayURL, sf: sf}
 	pc, err := sf.makePeerConnectionFromOffer(offer, config, dataChan, dataChannelAdaptor.datachannelHandler)
 	if err != nil {
 		log.Printf("error making WebRTC connection: %s", err)
