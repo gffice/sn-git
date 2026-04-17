@@ -183,6 +183,7 @@ type SnowflakeProxy struct {
 	bytesLogger        bytesLogger
 
 	relayReachable bool
+	pollTicker     *time.Ticker
 }
 
 // Checks whether an IP address is a remote address for the client
@@ -899,10 +900,10 @@ func (sf *SnowflakeProxy) Start() error {
 	BridgeProbeRetestTask.Start()
 	defer BridgeProbeRetestTask.Close()
 
-	ticker := time.NewTicker(sf.PollInterval)
-	defer ticker.Stop()
+	sf.pollTicker = time.NewTicker(sf.PollInterval)
+	defer sf.pollTicker.Stop()
 
-	for ; true; <-ticker.C {
+	for ; true; <-sf.pollTicker.C {
 		select {
 		case <-sf.shutdown:
 			return nil
