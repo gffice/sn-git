@@ -114,15 +114,8 @@ func (m *Metrics) UpdateProxyStats(addr string, proxyType string, natType string
 	// update unique IP proxy type metrics
 	key = fmt.Sprintf("%s-%s", addr, proxyType)
 	if _, loaded := m.ips.LoadOrStore(key, true); !loaded {
-		switch proxyType {
-		case "standalone":
-			m.IncrementCounter("proxy-standalone")
-		case "badge":
-			m.IncrementCounter("proxy-badge")
-		case "iptproxy":
-			m.IncrementCounter("proxy-iptproxy")
-		case "webext":
-			m.IncrementCounter("proxy-webext")
+		if proxyType != messages.ProxyUnknown {
+			m.IncrementCounter(fmt.Sprintf("proxy-%s", proxyType))
 		}
 	}
 }
@@ -252,10 +245,10 @@ func (m *Metrics) printMetrics() {
 		fmt.Sprintf("(%d s)", int(metricsResolution.Seconds())),
 	)
 	m.logger.Println("snowflake-ips", formatAndClearCountryStats(m.proxies, false))
-	m.logger.Printf("snowflake-ips-iptproxy %d\n", m.loadAndZero("proxy-iptproxy"))
-	m.logger.Printf("snowflake-ips-standalone %d\n", m.loadAndZero("proxy-standalone"))
-	m.logger.Printf("snowflake-ips-webext %d\n", m.loadAndZero("proxy-webext"))
-	m.logger.Printf("snowflake-ips-badge %d\n", m.loadAndZero("proxy-badge"))
+	for proxyType, _ := range messages.KnownProxyTypes {
+		m.logger.Printf("snowflake-ips-%s %d\n", proxyType,
+			m.loadAndZero(fmt.Sprintf("proxy-%s", proxyType)))
+	}
 	m.logger.Println("snowflake-ips-total", m.loadAndZero("proxy-total"))
 	m.logger.Println("snowflake-idle-count", binCount(m.loadAndZero("proxy-idle")))
 	m.logger.Println("snowflake-proxy-poll-with-relay-url-count", binCount(m.loadAndZero("proxy-poll-with-relay-url")))
