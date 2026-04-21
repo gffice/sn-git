@@ -510,6 +510,20 @@ client-sqs-ips
 				So(resp.NextPoll, ShouldEqual, pollInterval.Milliseconds())
 			})
 
+			Convey("with incorrect relay pattern if no AcceptedRelayPattern.", func() {
+				data := bytes.NewReader([]byte(`{"Sid":"ymbcCMto7KHNGYlp","Version":"1.0"}`))
+				r, err := http.NewRequest("POST", "snowflake.broker/proxy", data)
+				So(err, ShouldBeNil)
+				go ctx.Broker()
+				go func(i *IPC) {
+					proxyPolls(i, w, r)
+					done <- true
+				}(i)
+				<-done
+				So(w.Code, ShouldEqual, http.StatusOK)
+				resp, _ := messages.DecodeProxyPollResponse(w.Body.Bytes())
+				So(resp.Status, ShouldEqual, "incorrect relay pattern")
+			})
 		})
 
 		Convey("Responds to proxy answers...", func() {

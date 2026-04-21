@@ -83,7 +83,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		i.ctx.metrics.promMetrics.ProxyPollWithRelayURLExtensionTotal.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Inc()
 	}
 
-	if !i.ctx.CheckProxyRelayPattern(*req.AcceptedRelayPattern, req.AcceptedRelayPattern == nil) {
+	if !i.ctx.CheckProxyRelayPattern(req.AcceptedRelayPattern) {
 		i.ctx.metrics.IncrementCounter("proxy-poll-rejected-relay-url")
 		i.ctx.metrics.promMetrics.ProxyPollRejectedForRelayURLExtensionTotal.With(prometheus.Labels{"nat": req.NAT, "type": req.Type}).Inc()
 
