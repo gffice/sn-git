@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -156,6 +157,27 @@ func (ctx *BrokerContext) CheckProxyRelayPattern(pattern string, nonSupported bo
 	return proxyPattern.IsSupersetOf(brokerPattern)
 }
 
+type pollIntervalConfig struct {
+	UnrestrictedPollInterval time.Duration `json:"unrestricted_poll_interval"`
+	RestrictedPollInterval   time.Duration `json:"restricted_poll_interval"`
+}
+
+func (ctx *BrokerContext) LoadPollIntervalFromFile(filename string) error {
+	var config pollIntervalConfig
+	str, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(str, &config); err != nil {
+		return err
+	}
+	ctx.unrestrictedPool.SetPollInterval(config.UnrestrictedPollInterval * time.Millisecond)
+	ctx.restrictedPool.SetPollInterval(config.RestrictedPollInterval * time.Millisecond)
+	log.Printf("Loaded unrestricted poll interval: %d ms", config.UnrestrictedPollInterval)
+	log.Printf("Loaded restricted poll interval: %d ms", config.RestrictedPollInterval)
+	return nil
+}
+
 // Client offer contains an SDP, bridge fingerprint and the NAT type of the client
 type ClientOffer struct {
 	natType     string
@@ -179,6 +201,7 @@ func main() {
 	var ipCountPrefix string
 	var ipCountInterval time.Duration
 	var unsafeLogging bool
+	var pollIntervalFilepath string
 
 	flag.StringVar(&acmeEmail, "acme-email", "", "optional contact email for Let's Encrypt notifications")
 	flag.StringVar(&acmeHostnamesCommas, "acme-hostnames", "", "comma-separated hostnames for TLS certificate")
@@ -199,6 +222,7 @@ func main() {
 	flag.StringVar(&ipCountPrefix, "ip-count-prefix", "", "path prefix to ip count logging output")
 	flag.DurationVar(&ipCountInterval, "ip-count-interval", time.Hour, "time interval between each chunk")
 	flag.BoolVar(&unsafeLogging, "unsafe-logging", false, "prevent logs from being scrubbed")
+	flag.StringVar(&pollIntervalFilepath, "poll-interval-filepath", "", "path to file with a poll interval")
 	flag.Parse()
 
 	var metricsFile io.Writer
@@ -272,6 +296,11 @@ func main() {
 				"unknown":      files["unknown"],
 			}, ipCountMaskingKey, ipCountInterval)
 	}
+	if pollIntervalFilepath != "" {
+		if err := ctx.LoadPollIntervalFromFile(pollIntervalFilepath); err != nil {
+			log.Printf("failed to load poll interval from file: %s", err.Error())
+		}
+	}
 
 	go ctx.Broker()
 
@@ -337,6 +366,12 @@ func main() {
 			log.Printf("Received signal: %s. Reloading geoip databases.", signal)
 			if err := ctx.metrics.LoadGeoipDatabases(geoipDatabase, geoip6Database); err != nil {
 				log.Fatalf("reload of Geo IP databases on signal %s returned error: %v", signal, err)
+			}
+			if pollIntervalFilepath != "" {
+				log.Printf("Reloading poll interval")
+				if err := ctx.LoadPollIntervalFromFile(pollIntervalFilepath); err != nil {
+					log.Printf("failed to load poll interval from file: %s", err.Error())
+				}
 			}
 		}
 	}()

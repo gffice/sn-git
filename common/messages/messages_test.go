@@ -151,7 +151,7 @@ func TestDecodeProxyPollResponse(t *testing.T) {
 			offer    string
 			data     string
 			relayURL string
-			nextPoll uint
+			nextPoll int64
 			err      error
 		}{
 			{

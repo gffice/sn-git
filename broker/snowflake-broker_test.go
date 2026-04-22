@@ -507,7 +507,7 @@ client-sqs-ips
 				resp, _ := messages.DecodeProxyPollResponse(w.Body.Bytes())
 				pollInterval := ctx.GetPool(p).GetPollInterval()
 				// Check to make sure that we're within 1 second
-				So(resp.NextPoll, ShouldEqual, pollInterval)
+				So(resp.NextPoll, ShouldEqual, pollInterval.Milliseconds())
 			})
 
 		})

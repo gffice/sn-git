@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/bridgefingerprint"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/constants"
@@ -17,7 +18,7 @@ const (
 	ClientTimeout = constants.BrokerClientTimeout
 	ProxyTimeout  = 10
 
-	MaxPollInterval = 60 // Default max poll interval in seconds
+	MaxPollInterval = time.Hour
 
 	NATUnknown      = "unknown"
 	NATRestricted   = "restricted"
@@ -88,7 +89,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 
 		resp := messages.ProxyPollResponse{
 			Status:   "incorrect relay pattern",
-			NextPoll: MaxPollInterval,
+			NextPoll: MaxPollInterval.Milliseconds(),
 		}
 		b, err := resp.Encode()
 		*response = b
@@ -120,7 +121,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		clients:   req.Clients,
 	}
 	offer := i.ctx.RequestOffer(poll)
-	pollInterval := i.ctx.GetPool(poll).GetPollInterval()
+	pollInterval := i.ctx.GetPool(poll).GetPollInterval().Milliseconds()
 
 	if offer == nil {
 		i.ctx.metrics.IncrementCounter("proxy-idle")
