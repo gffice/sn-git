@@ -148,11 +148,11 @@ func (ctx *BrokerContext) InstallBridgeListProfile(reader io.Reader) error {
 	return nil
 }
 
-func (ctx *BrokerContext) CheckProxyRelayPattern(pattern string, nonSupported bool) bool {
-	if nonSupported {
+func (ctx *BrokerContext) CheckProxyRelayPattern(pattern *string) bool {
+	if pattern == nil {
 		return false
 	}
-	proxyPattern := namematcher.NewNameMatcher(pattern)
+	proxyPattern := namematcher.NewNameMatcher(*pattern)
 	brokerPattern := namematcher.NewNameMatcher(ctx.allowedRelayPattern)
 	return proxyPattern.IsSupersetOf(brokerPattern)
 }
