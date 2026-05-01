@@ -62,8 +62,18 @@ func TestDecodeProxyPollRequest(t *testing.T) {
 				proxyType:            "standalone",
 				natType:              "restricted",
 				clients:              24,
-				acceptedRelayPattern: "snowfalke.torproject.org",
-				data:                 `{"Sid":"ymbcCMto7KHNGYlp","Version":"1.2","Type":"standalone", "NAT":"restricted","Clients":24, "AcceptedRelayPattern":"snowfalke.torproject.org"}`,
+				acceptedRelayPattern: "snowflake.torproject.org",
+				data:                 `{"Sid":"ymbcCMto7KHNGYlp","Version":"1.2","Type":"standalone", "NAT":"restricted","Clients":24, "AcceptedRelayPattern":"snowflake.torproject.org"}`,
+				err:                  nil,
+			},
+			{
+				//no negative client counts
+				sid:                  "ymbcCMto7KHNGYlp",
+				proxyType:            "standalone",
+				natType:              "restricted",
+				clients:              0,
+				acceptedRelayPattern: "snowflake.torproject.org",
+				data:                 `{"Sid":"ymbcCMto7KHNGYlp","Version":"1.2","Type":"standalone", "NAT":"restricted","Clients":-1, "AcceptedRelayPattern":"snowflake.torproject.org"}`,
 				err:                  nil,
 			},
 			{

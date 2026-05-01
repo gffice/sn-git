@@ -171,6 +171,9 @@ func DecodeProxyPollRequest(data []byte) (*ProxyPollRequest, error) {
 		return nil, fmt.Errorf("invalid NAT type")
 	}
 
+	// self-reported clients should be greater than or equal to 0
+	message.Clients = max(message.Clients, 0)
+
 	// we don't reject polls with an unknown proxy type because we encourage
 	// projects that embed proxy code to include their own type
 	if !KnownProxyTypes[message.Type] {
