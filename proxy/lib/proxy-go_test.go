@@ -368,7 +368,9 @@ func TestBrokerInteractions(t *testing.T) {
 				b,
 			}
 
-			sdp, _ := broker.pollOffer(sampleOffer, DefaultProxyType, "")
+			pollResp, _ := broker.pollOffer(sampleOffer, DefaultProxyType, "")
+			sdp, err := util.DeserializeSessionDescription(pollResp.Offer)
+			So(err, ShouldBeNil)
 			expectedSDP, _ := strconv.Unquote(sampleSDP)
 			So(sdp.SDP, ShouldResemble, expectedSDP)
 		})
