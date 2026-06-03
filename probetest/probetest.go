@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pion/sdp/v3"
 	"github.com/pion/transport/v4"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/ptutil/safelog"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/messages"
@@ -59,7 +60,7 @@ func (h ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // candidates is complete and the answer is available in LocalDescription.
 func makePeerConnectionFromOffer(stunURL string, sdp *webrtc.SessionDescription,
 	dataChanOpen chan struct{}, dataChanClosed chan struct{}, iceGatheringTimeout time.Duration,
-	socks5proxy *url.URL, removeLocalCandidate bool) (*webrtc.PeerConnection, error) {
+	socks5proxy *url.URL) (*webrtc.PeerConnection, error) {
 
 	settingsEngine := webrtc.SettingEngine{}
 
@@ -94,11 +95,6 @@ func makePeerConnectionFromOffer(stunURL string, sdp *webrtc.SessionDescription,
 				URLs: strings.Split(stunURL, ","),
 			},
 		},
-	}
-	if removeLocalCandidate {
-		settingsEngine.SetICEAddressRewriteRules(
-			webrtc.ICEAddressRewriteRule{AsCandidateType: webrtc.ICECandidateTypeSrflx, External: []string{"127.0.0.1"}, Mode: webrtc.ICEAddressRewriteReplace},
-		)
 	}
 	pc, err := api.NewPeerConnection(config)
 	if err != nil {
@@ -197,7 +193,7 @@ func probeHandler(stunURL string, w http.ResponseWriter, r *http.Request,
 	// TODO refactor: DRY this must be below `ResponseHeaderTimeout` in proxy
 	// https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/blob/e1d9b4ace69897521cc29585b5084c5f4d1ce874/proxy/lib/snowflake.go#L207
 	iceGatheringTimeout := 10 * time.Second
-	pc, err := makePeerConnectionFromOffer(stunURL, sdp, dataChanOpen, dataChanClosed, iceGatheringTimeout, socks5proxy, removeLocalCandidate)
+	pc, err := makePeerConnectionFromOffer(stunURL, sdp, dataChanOpen, dataChanClosed, iceGatheringTimeout, socks5proxy)
 	if err != nil {
 		log.Printf("Error making WebRTC connection: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -214,7 +210,17 @@ func probeHandler(stunURL string, w http.ResponseWriter, r *http.Request,
 		// Otherwise it must be closed below, wherever `closePcOnReturn` is set to `false`.
 	}()
 
-	answer, err := util.SerializeSessionDescription(pc.LocalDescription())
+	localSDP := pc.LocalDescription()
+	if removeLocalCandidate {
+		localSDP, err = removeCandidatesFromSessionDescription(localSDP)
+		if err != nil {
+			log.Printf("Error removing candidates from session description: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	answer, err := util.SerializeSessionDescription(localSDP)
 	if err != nil {
 		log.Printf("Error making WebRTC connection: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -264,6 +270,34 @@ func probeHandler(stunURL string, w http.ResponseWriter, r *http.Request,
 	}()
 	return
 
+}
+
+func removeCandidatesFromSessionDescription(desc *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+	var parsed sdp.SessionDescription
+	if err := parsed.Unmarshal([]byte(desc.SDP)); err != nil {
+		return nil, err
+	}
+
+	for _, media := range parsed.MediaDescriptions {
+		attrs := make([]sdp.Attribute, 0, len(media.Attributes))
+		for _, attr := range media.Attributes {
+			if attr.IsICECandidate() {
+				continue
+			}
+			attrs = append(attrs, attr)
+		}
+		media.Attributes = attrs
+	}
+
+	raw, err := parsed.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &webrtc.SessionDescription{
+		Type: desc.Type,
+		SDP:  string(raw),
+	}, nil
 }
 
 func main() {
