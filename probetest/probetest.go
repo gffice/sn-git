@@ -45,15 +45,15 @@ const (
 )
 
 type ProbeHandler struct {
-	stunURL                                              string
-	handle                                               func(string, http.ResponseWriter, *http.Request, string, string)
-	strictInteractiveConnectivitySimulationSocks5Proxy   string
-	moderateInteractiveConnectivitySimulationSocks5Proxy string
+	stunURL                string
+	handle                 func(string, http.ResponseWriter, *http.Request, string, string)
+	strictSOCKS5ProxyURL   string
+	moderateSOCKS5ProxyURL string
 }
 
 func (h ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handle(h.stunURL, w, r,
-		h.strictInteractiveConnectivitySimulationSocks5Proxy, h.moderateInteractiveConnectivitySimulationSocks5Proxy)
+		h.strictSOCKS5ProxyURL, h.moderateSOCKS5ProxyURL)
 }
 
 // Create a PeerConnection from an SDP offer. Blocks until the gathering of ICE
@@ -148,20 +148,32 @@ func makePeerConnectionFromOffer(stunURL string, sdp *webrtc.SessionDescription,
 }
 
 func probeHandler(stunURL string, w http.ResponseWriter, r *http.Request,
-	strictInteractiveConnectivitySimulationSocks5Proxy string,
-	moderateInteractiveConnectivitySimulationSocks5Proxy string) {
+	strictSocks5ProxyURL string,
+	moderateSocks5ProxyURL string) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	var removeLocalCandidate bool
 	var socks5proxy *url.URL
 	interactiveConnectivitySimulationKind := r.URL.Query().Get("InCoSim")
 	switch interactiveConnectivitySimulationKind {
 	case "moderate":
-		socks5proxy, _ = url.Parse(moderateInteractiveConnectivitySimulationSocks5Proxy)
+		var err error
+		socks5proxy, err = url.Parse(moderateSocks5ProxyURL)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Println("Invalid moderate socks5 proxy URL.")
+			return
+		}
 	case "strict":
 		fallthrough
 	default:
 		removeLocalCandidate = true
-		socks5proxy, _ = url.Parse(strictInteractiveConnectivitySimulationSocks5Proxy)
+		var err error
+		socks5proxy, err = url.Parse(strictSocks5ProxyURL)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Println("Invalid strict socks5 proxy URL.")
+			return
+		}
 	}
 	resp, err := io.ReadAll(http.MaxBytesReader(w, r.Body, readLimit))
 	if nil != err {
