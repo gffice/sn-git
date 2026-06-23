@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/bridgefingerprint"
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/util"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/nat"
 )
@@ -101,6 +103,9 @@ func DecodeClientPollRequest(data []byte) (*ClientPollRequest, error) {
 
 	if message.Offer == "" {
 		return nil, fmt.Errorf("no supplied offer")
+	}
+	if _, err := util.DeserializeSessionDescription(message.Offer); err != nil {
+		return nil, fmt.Errorf("malformed session description: %s", err.Error())
 	}
 
 	if message.Fingerprint == "" {

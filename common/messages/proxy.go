@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/nat"
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/util"
 )
 
 const (
@@ -314,6 +315,9 @@ func DecodeProxyAnswerRequest(data []byte) (*ProxyAnswerRequest, error) {
 
 	if message.Sid == "" || message.Answer == "" {
 		return nil, fmt.Errorf("no supplied sid or answer")
+	}
+	if _, err := util.DeserializeSessionDescription(message.Answer); err != nil {
+		return nil, fmt.Errorf("malformed session description: %s", err.Error())
 	}
 
 	return &message, nil

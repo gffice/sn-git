@@ -31,26 +31,9 @@ func NullLogger() *log.Logger {
 var promOnce sync.Once
 
 var (
-	sdp = "v=0\r\n" +
-		"o=- 123456789 987654321 IN IP4 0.0.0.0\r\n" +
-		"s=-\r\n" +
-		"t=0 0\r\n" +
-		"a=fingerprint:sha-256 12:34\r\n" +
-		"a=extmap-allow-mixed\r\n" +
-		"a=group:BUNDLE 0\r\n" +
-		"m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n" +
-		"c=IN IP4 0.0.0.0\r\n" +
-		"a=setup:actpass\r\n" +
-		"a=mid:0\r\n" +
-		"a=sendrecv\r\n" +
-		"a=sctp-port:5000\r\n" +
-		"a=ice-ufrag:CoVEaiFXRGVzshXG\r\n" +
-		"a=ice-pwd:aOrOZXraTfFKzyeBxIXYYKjSgRVPGhUx\r\n" +
-		"a=candidate:1000 1 udp 2000 8.8.8.8 3000 typ host\r\n" +
-		"a=end-of-candidates\r\n"
-
-	rawOffer = `{"type":"offer","sdp":"v=0\r\no=- 4358805017720277108 2 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\na=group:BUNDLE data\r\na=msid-semantic: WMS\r\nm=application 56688 DTLS/SCTP 5000\r\nc=IN IP4 0.0.0.0\r\na=candidate:3769337065 1 udp 2122260223 129.97.208.23 56688 typ host generation 0 network-id 1 network-cost 50\r\na=candidate:2921887769 1 tcp 1518280447 129.97.208.23 35441 typ host tcptype passive generation 0 network-id 1 network-cost 50\r\na=ice-ufrag:aMAZ\r\na=ice-pwd:jcHb08Jjgrazp2dzjdrvPPvV\r\na=ice-options:trickle\r\na=fingerprint:sha-256 C8:88:EE:B9:E7:02:2E:21:37:ED:7A:D1:EB:2B:A3:15:A2:3B:5B:1C:3D:D4:D5:1F:06:CF:52:40:03:F8:DD:66\r\na=setup:actpass\r\na=mid:data\r\na=sctpmap:5000 webrtc-datachannel 1024\r\n"}`
-	sid      = "ymbcCMto7KHNGYlp"
+	rawOffer  = `{"type":"offer","sdp":"v=0\r\no=- 4358805017720277108 2 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\na=group:BUNDLE data\r\na=msid-semantic: WMS\r\nm=application 56688 DTLS/SCTP 5000\r\nc=IN IP4 0.0.0.0\r\na=candidate:3769337065 1 udp 2122260223 129.97.208.23 56688 typ host generation 0 network-id 1 network-cost 50\r\na=candidate:2921887769 1 tcp 1518280447 129.97.208.23 35441 typ host tcptype passive generation 0 network-id 1 network-cost 50\r\na=ice-ufrag:aMAZ\r\na=ice-pwd:jcHb08Jjgrazp2dzjdrvPPvV\r\na=ice-options:trickle\r\na=fingerprint:sha-256 C8:88:EE:B9:E7:02:2E:21:37:ED:7A:D1:EB:2B:A3:15:A2:3B:5B:1C:3D:D4:D5:1F:06:CF:52:40:03:F8:DD:66\r\na=setup:actpass\r\na=mid:data\r\na=sctpmap:5000 webrtc-datachannel 1024\r\n"}`
+	rawAnswer = `{"type":"answer","sdp":"v=0\r\no=- 4358805017720277108 2 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\na=group:BUNDLE data\r\na=msid-semantic: WMS\r\nm=application 56688 DTLS/SCTP 5000\r\nc=IN IP4 0.0.0.0\r\na=candidate:3769337065 1 udp 2122260223 129.97.208.23 56688 typ host generation 0 network-id 1 network-cost 50\r\na=candidate:2921887769 1 tcp 1518280447 129.97.208.23 35441 typ host tcptype passive generation 0 network-id 1 network-cost 50\r\na=ice-ufrag:aMAZ\r\na=ice-pwd:jcHb08Jjgrazp2dzjdrvPPvV\r\na=ice-options:trickle\r\na=fingerprint:sha-256 C8:88:EE:B9:E7:02:2E:21:37:ED:7A:D1:EB:2B:A3:15:A2:3B:5B:1C:3D:D4:D5:1F:06:CF:52:40:03:F8:DD:66\r\na=setup:actpass\r\na=mid:data\r\na=sctpmap:5000 webrtc-datachannel 1024\r\n"}`
+	sid       = "ymbcCMto7KHNGYlp"
 )
 
 func createClientOffer(sdp, nat, fingerprint string) (*bytes.Reader, error) {
@@ -152,7 +135,7 @@ func TestBroker(t *testing.T) {
 
 		Convey("Responds to HTTP client offers...", func() {
 			w := httptest.NewRecorder()
-			data, err := createClientOffer(sdp, NATUnknown, "")
+			data, err := createClientOffer(rawOffer, NATUnknown, "")
 			r, err := http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 
@@ -186,7 +169,7 @@ client-sqs-ips
 					done <- true
 				}()
 				offer := <-snowflake.offerChannel
-				So(offer.sdp, ShouldResemble, []byte(sdp))
+				So(offer.sdp, ShouldResemble, []byte(rawOffer))
 				snowflake.answerChannel <- "test answer"
 				<-done
 				So(w.Body.String(), ShouldEqual, `{"answer":"test answer"}`)
@@ -210,7 +193,7 @@ client-sqs-ips
 
 			Convey("with unrestricted proxy to unrestricted client if there are no restricted proxies", func() {
 				snowflake := addFakeSnowflake(ctx)
-				offerData, err := createClientOffer(sdp, NATUnrestricted, "")
+				offerData, err := createClientOffer(rawOffer, NATUnrestricted, "")
 				So(err, ShouldBeNil)
 				r, err := http.NewRequest("POST", "snowflake.broker/client", offerData)
 
@@ -244,7 +227,7 @@ client-sqs-ips
 					done <- true
 				}()
 				offer := <-snowflake.offerChannel
-				So(offer.sdp, ShouldResemble, []byte(sdp))
+				So(offer.sdp, ShouldResemble, []byte(rawOffer))
 				<-done
 				So(w.Code, ShouldEqual, http.StatusOK)
 				So(w.Body.String(), ShouldEqual, `{"error":"timed out waiting for answer!"}`)
@@ -254,7 +237,7 @@ client-sqs-ips
 		Convey("Responds to HTTP legacy client offers...", func() {
 			w := httptest.NewRecorder()
 			// legacy offer starts with {
-			offer := bytes.NewReader([]byte(fmt.Sprintf(`{%v}`, sdp)))
+			offer := bytes.NewReader([]byte(rawOffer))
 			r, err := http.NewRequest("POST", "snowflake.broker/client", offer)
 			So(err, ShouldBeNil)
 			r.Header.Set("Snowflake-NAT-TYPE", "restricted")
@@ -289,7 +272,7 @@ client-sqs-ips
 					done <- true
 				}()
 				offer := <-snowflake.offerChannel
-				So(offer.sdp, ShouldResemble, []byte(fmt.Sprintf(`{%v}`, sdp)))
+				So(offer.sdp, ShouldResemble, []byte(rawOffer))
 				snowflake.answerChannel <- "fake answer"
 				<-done
 				So(w.Body.String(), ShouldEqual, "fake answer")
@@ -323,7 +306,7 @@ client-sqs-ips
 					done <- true
 				}()
 				offer := <-snowflake.offerChannel
-				So(offer.sdp, ShouldResemble, []byte(fmt.Sprintf(`{%v}`, sdp)))
+				So(offer.sdp, ShouldResemble, []byte(rawOffer))
 				<-done
 				So(w.Code, ShouldEqual, http.StatusGatewayTimeout)
 			})
@@ -332,8 +315,13 @@ client-sqs-ips
 
 		Convey("Responds to AMP client offers...", func() {
 			w := httptest.NewRecorder()
-			encPollReq := []byte("1.0\n{\"offer\": \"fake\", \"nat\": \"unknown\"}")
-			r, err := http.NewRequest("GET", "/amp/client/"+amp.EncodePath(encPollReq), nil)
+			clientRequest := &messages.ClientPollRequest{
+				Offer: rawOffer,
+				NAT:   "unknown",
+			}
+			encOffer, err := clientRequest.EncodeClientPollRequest()
+			So(err, ShouldBeNil)
+			r, err := http.NewRequest("GET", "/amp/client/"+amp.EncodePath(encOffer), nil)
 			So(err, ShouldBeNil)
 
 			Convey("with status 200 when request is badly formatted.", func() {
@@ -377,12 +365,12 @@ client-sqs-ips
 					done <- true
 				}()
 				offer := <-snowflake.offerChannel
-				So(offer.sdp, ShouldResemble, []byte("fake"))
+				So(offer.sdp, ShouldResemble, []byte(rawOffer))
 				snowflake.answerChannel <- "fake answer"
 				<-done
 				body, err := decodeAMPArmorToString(w.Body)
 				So(err, ShouldBeNil)
-				So(body, ShouldEqual, `{"answer":"fake answer"}`)
+				So(body, ShouldEqual, "{\"answer\":\"fake answer\"}")
 				So(w.Code, ShouldEqual, http.StatusOK)
 
 				// Ensure that match is correctly recorded in metrics
@@ -413,7 +401,7 @@ client-sqs-ips
 					done <- true
 				}()
 				offer := <-snowflake.offerChannel
-				So(offer.sdp, ShouldResemble, []byte("fake"))
+				So(offer.sdp, ShouldResemble, []byte(rawOffer))
 				<-done
 				So(w.Code, ShouldEqual, http.StatusOK)
 				body, err := decodeAMPArmorToString(w.Body)
@@ -534,7 +522,7 @@ client-sqs-ips
 			ctx.idToSnowflake[s.id] = s
 			w := httptest.NewRecorder()
 
-			data, err := createProxyAnswer(sdp, sid)
+			data, err := createProxyAnswer(rawAnswer, sid)
 			So(err, ShouldBeNil)
 
 			Convey("by passing to the client if valid.", func() {
@@ -547,11 +535,11 @@ client-sqs-ips
 				answer := <-s.answerChannel
 				<-done
 				So(w.Code, ShouldEqual, http.StatusOK)
-				So(answer, ShouldResemble, sdp)
+				So(answer, ShouldResemble, rawAnswer)
 			})
 
 			Convey("with client gone status if the proxy ID is not recognized", func() {
-				data, err := createProxyAnswer(sdp, "invalid")
+				data, err := createProxyAnswer(rawAnswer, "invalid")
 				r, err := http.NewRequest("POST", "snowflake.broker/answer", data)
 				So(err, ShouldBeNil)
 				proxyAnswers(i, w, r)
@@ -604,7 +592,7 @@ client-sqs-ips
 
 			// Client offer
 			wc := httptest.NewRecorder()
-			datac, err := createClientOffer(sdp, NATUnknown, "")
+			datac, err := createClientOffer(rawOffer, NATUnknown, "")
 			So(err, ShouldBeNil)
 			rc, err := http.NewRequest("POST", "snowflake.broker/client", datac)
 			So(err, ShouldBeNil)
@@ -619,7 +607,7 @@ client-sqs-ips
 
 			// Proxy answers
 			wp = httptest.NewRecorder()
-			datap, err = createProxyAnswer(sdp, sid)
+			datap, err = createProxyAnswer(rawAnswer, sid)
 			So(err, ShouldBeNil)
 			rp, err = http.NewRequest("POST", "snowflake.broker/answer", datap)
 			So(err, ShouldBeNil)
@@ -662,7 +650,7 @@ client-sqs-ips
 
 			// Client request blocks until proxy answer arrives.
 			wC := httptest.NewRecorder()
-			dataC, err := createClientOffer(sdp, NATUnknown, "")
+			dataC, err := createClientOffer(rawOffer, NATUnknown, "")
 			So(err, ShouldBeNil)
 			rC, err := http.NewRequest("POST", "snowflake.broker/client", dataC)
 			So(err, ShouldBeNil)
@@ -673,13 +661,16 @@ client-sqs-ips
 
 			<-polled
 			So(wP.Code, ShouldEqual, http.StatusOK)
-			So(wP.Body.String(), ShouldContainSubstring, fmt.Sprintf(`{"Status":"client match","Offer":%#q,"NAT":"unknown"`, sdp))
+			So(wP.Body.String(), ShouldContainSubstring, `{"Status":"client match","Offer":`)
 			So(wP.Body.String(), ShouldContainSubstring, `"RelayURL":"wss://snowflake.torproject.net/"}`)
+			respP, err := messages.DecodeProxyPollResponse(wP.Body.Bytes())
+			So(err, ShouldBeNil)
+			So(respP.Offer, ShouldEqual, rawOffer)
 			So(ctx.idToSnowflake[sid], ShouldNotBeNil)
 
 			// Follow up with the answer request afterwards
 			wA := httptest.NewRecorder()
-			dataA, err := createProxyAnswer(sdp, sid)
+			dataA, err := createProxyAnswer(rawAnswer, sid)
 			So(err, ShouldBeNil)
 			rA, err := http.NewRequest("POST", "snowflake.broker/answer", dataA)
 			So(err, ShouldBeNil)
@@ -688,7 +679,9 @@ client-sqs-ips
 
 			<-done
 			So(wC.Code, ShouldEqual, http.StatusOK)
-			So(wC.Body.String(), ShouldEqual, fmt.Sprintf(`{"answer":%#q}`, sdp))
+			respC, err := messages.DecodeClientPollResponse(wC.Body.Bytes())
+			So(err, ShouldBeNil)
+			So(respC.Answer, ShouldEqual, rawAnswer)
 		})
 	})
 }
@@ -847,7 +840,7 @@ snowflake-ips-nat-unknown 4
 		//Test addition of client failures
 		Convey("for no proxies available", func() {
 			w := httptest.NewRecorder()
-			data, err := createClientOffer(sdp, NATUnknown, "")
+			data, err := createClientOffer(rawOffer, NATUnknown, "")
 			So(err, ShouldBeNil)
 			r, err := http.NewRequest("POST", "snowflake.broker/client", data)
 			r.RemoteAddr = "129.97.208.23:8888" //CA geoip
@@ -902,7 +895,7 @@ snowflake-ips-nat-unknown 0
 		//Test addition of client matches
 		Convey("for client-proxy match", func() {
 			w := httptest.NewRecorder()
-			data, err := createClientOffer(sdp, NATUnknown, "")
+			data, err := createClientOffer(rawOffer, NATUnknown, "")
 			So(err, ShouldBeNil)
 			r, err := http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
@@ -914,7 +907,7 @@ snowflake-ips-nat-unknown 0
 				done <- true
 			}()
 			offer := <-snowflake.offerChannel
-			So(offer.sdp, ShouldResemble, []byte(sdp))
+			So(offer.sdp, ShouldResemble, []byte(rawOffer))
 			snowflake.answerChannel <- "fake answer"
 			<-done
 
@@ -924,63 +917,63 @@ snowflake-ips-nat-unknown 0
 		//Test rounding boundary
 		Convey("binning boundary", func() {
 			w := httptest.NewRecorder()
-			data, err := createClientOffer(sdp, NATRestricted, "")
+			data, err := createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err := http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
 			clientOffers(i, w, r)
 
 			w = httptest.NewRecorder()
-			data, err = createClientOffer(sdp, NATRestricted, "")
+			data, err = createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
@@ -1060,7 +1053,7 @@ snowflake-ips-nat-unknown 0
 
 		Convey("client failures by NAT type", func() {
 			w := httptest.NewRecorder()
-			data, err := createClientOffer(sdp, NATRestricted, "")
+			data, err := createClientOffer(rawOffer, NATRestricted, "")
 			So(err, ShouldBeNil)
 			r, err := http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
@@ -1072,7 +1065,7 @@ snowflake-ips-nat-unknown 0
 
 			buf.Reset()
 
-			data, err = createClientOffer(sdp, NATUnrestricted, "")
+			data, err = createClientOffer(rawOffer, NATUnrestricted, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
@@ -1084,7 +1077,7 @@ snowflake-ips-nat-unknown 0
 
 			buf.Reset()
 
-			data, err = createClientOffer(sdp, NATUnknown, "")
+			data, err = createClientOffer(rawOffer, NATUnknown, "")
 			So(err, ShouldBeNil)
 			r, err = http.NewRequest("POST", "snowflake.broker/client", data)
 			So(err, ShouldBeNil)
@@ -1164,7 +1157,7 @@ func TestConcurrency(t *testing.T) {
 
 					// Proxy answers
 					wp = httptest.NewRecorder()
-					datap, err = createProxyAnswer(sdp, id)
+					datap, err = createProxyAnswer(rawAnswer, id)
 					c.So(err, ShouldBeNil)
 					rp, err = http.NewRequest("POST", "snowflake.broker/answer", datap)
 					c.So(err, ShouldBeNil)
@@ -1180,7 +1173,7 @@ func TestConcurrency(t *testing.T) {
 			for x := 0; x < 500; x++ {
 				wg.Add(1)
 				wc := httptest.NewRecorder()
-				datac, err := createClientOffer(sdp, NATUnrestricted, "")
+				datac, err := createClientOffer(rawOffer, NATUnrestricted, "")
 				So(err, ShouldBeNil)
 				rc, err := http.NewRequest("POST", "snowflake.broker/client", datac)
 				So(err, ShouldBeNil)
@@ -1188,7 +1181,7 @@ func TestConcurrency(t *testing.T) {
 				go func() {
 					clientOffers(i, wc, rc)
 					c.So(wc.Code, ShouldEqual, http.StatusOK)
-					c.So(wc.Body.String(), ShouldContainSubstring, "8.8.8.8")
+					c.So(wc.Body.String(), ShouldContainSubstring, "129.97.208.23")
 					wg.Done()
 				}()
 			}
