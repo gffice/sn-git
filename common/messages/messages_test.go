@@ -276,9 +276,9 @@ func TestDecodeProxyAnswerRequest(t *testing.T) {
 			err    error
 		}{
 			{
+				`{"type":"answer","sdp":"fake"}`,
 				"test",
-				"test",
-				`{"Version":"1.0","Sid":"test","Answer":"test"}`,
+				`{"Version":"1.0","Sid":"test","Answer":"{\"type\":\"answer\",\"sdp\":\"fake\"}"}`,
 				nil,
 			},
 			{
@@ -290,7 +290,7 @@ func TestDecodeProxyAnswerRequest(t *testing.T) {
 			{
 				"",
 				"",
-				`{"Version":"1.0","Answer":"test"}`,
+				`{"Version":"1.0","Answer":"{\"type\":\"answer\",\"sdp\":\"fake\"}"}`,
 				fmt.Errorf(""),
 			},
 			{
@@ -314,13 +314,13 @@ func TestDecodeProxyAnswerRequest(t *testing.T) {
 func TestEncodeProxyAnswerRequest(t *testing.T) {
 	Convey("Context", t, func() {
 		req := &ProxyAnswerRequest{
-			Answer: "test answer",
+			Answer: `{"type":"answer","sdp":"fake"}`,
 			Sid:    "test sid",
 		}
 		b, err := req.Encode()
 		So(err, ShouldBeNil)
 		req, err = DecodeProxyAnswerRequest(b)
-		So(req.Answer, ShouldEqual, "test answer")
+		So(req.Answer, ShouldEqual, `{"type":"answer","sdp":"fake"}`)
 		So(req.Sid, ShouldEqual, "test sid")
 		So(err, ShouldBeNil)
 	})
@@ -384,17 +384,17 @@ func TestDecodeClientPollRequest(t *testing.T) {
 			{
 				//version 1.0 client message
 				"unknown",
-				"fake",
+				`{"type":"offer","sdp":"fake"}`,
 				`1.0
-{"nat":"unknown","offer":"fake"}`,
+				{"nat":"unknown","offer":"{\"type\":\"offer\",\"sdp\":\"fake\"}"}`,
 				nil,
 			},
 			{
 				//version 1.0 client message
 				"unknown",
-				"fake",
+				`{"type":"offer","sdp":"fake"}`,
 				`1.0
-{"offer":"fake"}`,
+				{"offer":"{\"type\":\"offer\",\"sdp\":\"fake\"}"}`,
 				nil,
 			},
 			{
@@ -410,6 +410,14 @@ func TestDecodeClientPollRequest(t *testing.T) {
 				"",
 				`1.0
 {"nat":"unknown"}`,
+				fmt.Errorf(""),
+			},
+			{
+				//malformed offer
+				"",
+				"",
+				`1.0
+				{"offer":"{\"type\":0,\"sdp\":\"fake\"}"}`,
 				fmt.Errorf(""),
 			},
 		} {
@@ -434,19 +442,19 @@ func TestEncodeClientPollRequests(t *testing.T) {
 		}{
 			{
 				"unknown",
-				"fake",
+				`{"type":"offer","sdp":"fake"}`,
 				"",
 				nil,
 			},
 			{
 				"unknown",
-				"fake",
+				`{"type":"offer","sdp":"fake"}`,
 				defaultBridgeFingerprint,
 				nil,
 			},
 			{
 				"unknown",
-				"fake",
+				`{"type":"offer","sdp":"fake"}`,
 				"123123",
 				fmt.Errorf(""),
 			},

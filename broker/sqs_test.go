@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/messages"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/sqsclient"
 )
 
@@ -47,7 +49,13 @@ func TestSQS(t *testing.T) {
 				go sqsHandler.PollAndHandleMessages(sqsHandlerContext)
 			}
 
-			messageBody := aws.String("1.0\n{\"offer\": \"fake\", \"nat\": \"unknown\"}")
+			clientRequest := &messages.ClientPollRequest{
+				Offer: rawOffer,
+				NAT:   "unknown",
+			}
+			encOffer, err := clientRequest.EncodeClientPollRequest()
+			So(err, ShouldBeNil)
+			messageBody := aws.String(string(encOffer))
 			receiptHandle := "fake-receipt-handle"
 			sqsReceiveMessageInput := sqs.ReceiveMessageInput{
 				QueueUrl:            responseQueueURL,
@@ -161,6 +169,7 @@ func TestSQS(t *testing.T) {
 					mockSQSClient.EXPECT().DeleteMessage(gomock.Any(), gomock.Any()).AnyTimes()
 					mockSQSClient.EXPECT().SendMessage(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
 						func(ctx context.Context, input *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error) {
+							fmt.Printf("%s", *input.MessageBody)
 							c.So(input.MessageBody, ShouldEqual, aws.String("{\"answer\":\"fake answer\"}"))
 							// Ensure that match is correctly recorded in metrics
 							ipcCtx.metrics.printMetrics()
