@@ -33,7 +33,7 @@ var KnownProxyTypes = map[string]bool{
   Sid: [generated session id of proxy],
   Version: 1.3,
   Type: ["badge"|"webext"|"standalone"],
-  NAT: ["unknown"|"restricted"|"unrestricted"],
+  NAT: ["unknown"|"restricted"(deprecated)|"unrestricted"(deprecated)|"open"|"moderate"|"strict"],
   Clients: [number of current clients, rounded down to multiples of 8],
   AcceptedRelayPattern: [a pattern representing accepted set of relay domains]
 }
@@ -47,7 +47,7 @@ HTTP 200 OK
     type: offer,
     sdp: [WebRTC SDP]
   },
-  NAT: ["unknown"|"restricted"|"unrestricted"],
+  NAT: ["unknown"|"restricted"(deprecated)|"unrestricted"(deprecated)|"open"|"moderate"|"strict"],
   RelayURL: [the WebSocket URL proxy should connect to relay Snowflake traffic]
   NextPoll: [number of milliseconds until the proxy's next poll]
 }
@@ -60,7 +60,15 @@ HTTP 200 OK
   NextPoll: [number of milliseconds until the proxy's next poll]
 }
 
-3) If the request is malformed:
+3) If a proxy polled before the rate limit is lifted:
+HTTP 200 OK
+
+{
+  Status: "polled too soon"
+  NextPoll: [number of milliseconds until the proxy's next poll]
+}
+
+4) If the request is malformed:
 HTTP 400 BadRequest
 
 == ProxyAnswerRequest ==
@@ -167,7 +175,12 @@ func DecodeProxyPollRequest(data []byte) (*ProxyPollRequest, error) {
 		message.NAT = nat.NATUnknown
 	case nat.NATUnknown:
 	case nat.NATRestricted:
+		// NATRestricted type is deprecated
 	case nat.NATUnrestricted:
+		// NATUnrestricted type is deprecated
+	case nat.NAT3Open:
+	case nat.NAT3Moderate:
+	case nat.NAT3Strict:
 	default:
 		return nil, fmt.Errorf("invalid NAT type")
 	}
@@ -186,6 +199,7 @@ func DecodeProxyPollRequest(data []byte) (*ProxyPollRequest, error) {
 const (
 	ProxyClientMatch   = "client match"
 	ProxyClientNoMatch = "no match"
+	ProxyClientTooSoon = "polled too soon"
 )
 
 type ProxyPollResponse struct {
@@ -260,7 +274,8 @@ func DecodeProxyPollResponse(data []byte) (*ProxyPollResponse, error) {
 		}
 	} else {
 		message.Offer = ""
-		if message.Status != ProxyClientNoMatch {
+		if message.Status != ProxyClientNoMatch &&
+			message.Status != ProxyClientTooSoon {
 			err = errors.New(message.Status)
 		}
 	}

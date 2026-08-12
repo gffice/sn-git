@@ -6,12 +6,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/bridgefingerprint"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/constants"
-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/util"
-
-	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/messages"
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/nat"
+	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/util"
 )
 
 const (
@@ -20,9 +21,15 @@ const (
 
 	MaxPollInterval = time.Hour
 
-	NATUnknown      = "unknown"
-	NATRestricted   = "restricted"
-	NATUnrestricted = "unrestricted"
+	NATUnknown      = nat.NATUnknown
+	NATRestricted   = nat.NATRestricted
+	NATUnrestricted = nat.NATUnrestricted
+
+	// Inlined from common/nat
+
+	NAT3Open     = nat.NAT3Open
+	NAT3Moderate = nat.NAT3Moderate
+	NAT3Strict   = nat.NAT3Strict
 )
 
 type IPC struct {
@@ -32,6 +39,7 @@ type IPC struct {
 func (i *IPC) Debug(_ interface{}, response *string) error {
 	var unknowns int
 	var natRestricted, natUnrestricted, natUnknown int
+	var natOpen, natModerate, natStrict int
 	proxyTypes := make(map[string]int)
 
 	i.ctx.snowflakeLock.Lock()
@@ -48,6 +56,12 @@ func (i *IPC) Debug(_ interface{}, response *string) error {
 			natRestricted++
 		case NATUnrestricted:
 			natUnrestricted++
+		case NAT3Open:
+			natOpen++
+		case NAT3Moderate:
+			natModerate++
+		case NAT3Strict:
+			natStrict++
 		default:
 			natUnknown++
 		}
@@ -63,6 +77,10 @@ func (i *IPC) Debug(_ interface{}, response *string) error {
 	s += fmt.Sprintf("\nNAT Types available:")
 	s += fmt.Sprintf("\n\trestricted: %d", natRestricted)
 	s += fmt.Sprintf("\n\tunrestricted: %d", natUnrestricted)
+	s += fmt.Sprintf("\n\tstrict: %d", natStrict)
+	s += fmt.Sprintf("\n\tmoderate: %d", natModerate)
+	s += fmt.Sprintf("\n\topen: %d", natOpen)
+
 	s += fmt.Sprintf("\n\tunknown: %d", natUnknown)
 
 	*response = s
@@ -105,7 +123,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		log.Println("Warning: cannot process proxy IP: ", err.Error())
 	} else {
 		i.ctx.metrics.UpdateProxyStats(remoteIP, req.Type, req.NAT)
-		go i.ctx.metrics.RecordIPAddress(remoteIP, req.NAT == NATUnrestricted, req.Type)
+		go i.ctx.metrics.RecordIPAddress(remoteIP, req.NAT, req.Type)
 	}
 
 	var b []byte
@@ -119,9 +137,23 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		proxyType: req.Type,
 		natType:   req.NAT,
 		clients:   req.Clients,
+		addr:      remoteIP,
+	}
+	pool := i.ctx.GetPool(poll)
+	nextPoll, ok := pool.CheckAndLimit(remoteIP)
+	if !ok {
+		resp := messages.ProxyPollResponse{
+			Status:   messages.ProxyClientTooSoon,
+			NextPoll: nextPoll.Sub(time.Now()).Milliseconds(),
+		}
+		b, err := resp.Encode()
+		*response = b
+		if err != nil {
+			return messages.ErrInternal
+		}
+		return nil
 	}
 	offer := i.ctx.RequestOffer(poll)
-	pollInterval := i.ctx.GetPool(poll).GetPollInterval().Milliseconds()
 
 	if offer == nil {
 		i.ctx.metrics.IncrementCounter("proxy-idle")
@@ -129,7 +161,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 
 		resp := messages.ProxyPollResponse{
 			Status:   messages.ProxyClientNoMatch,
-			NextPoll: pollInterval,
+			NextPoll: nextPoll.Sub(time.Now()).Milliseconds(),
 		}
 		b, err = resp.Encode()
 		if err != nil {
@@ -156,7 +188,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		Status:   messages.ProxyClientMatch,
 		NAT:      offer.natType,
 		RelayURL: relayURL,
-		NextPoll: pollInterval,
+		NextPoll: nextPoll.Sub(time.Now()).Milliseconds(),
 	}
 	b, err = resp.Encode()
 	if err != nil {
@@ -251,16 +283,26 @@ func (i *IPC) ClientOffers(arg messages.Arg, response *[]byte) error {
 }
 
 func (i *IPC) matchSnowflake(natType string) *Snowflake {
-	// Proiritize known restricted snowflakes for unrestricted clients
-	if natType == NATUnrestricted {
-		snowflake := i.ctx.restrictedPool.Pop()
-		if snowflake != nil {
+	// Match strict, moderate, open pool in order, and skip any non-working pools
+	switch natType {
+	case NATUnrestricted:
+		fallthrough
+	case NAT3Open:
+		if snowflake := i.ctx.strictPool.Pop(); snowflake != nil {
 			return snowflake
 		}
+		if snowflake := i.ctx.moderatePool.Pop(); snowflake != nil {
+			return snowflake
+		}
+		return i.ctx.openPool.Pop()
+	case NAT3Moderate:
+		if snowflake := i.ctx.moderatePool.Pop(); snowflake != nil {
+			return snowflake
+		}
+		return i.ctx.openPool.Pop()
+	default:
+		return i.ctx.openPool.Pop()
 	}
-
-	snowflake := i.ctx.unrestrictedPool.Pop()
-	return snowflake
 }
 
 func (i *IPC) ProxyAnswers(arg messages.Arg, response *[]byte) error {
