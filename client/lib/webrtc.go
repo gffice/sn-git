@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"log"
-	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/covertdtls"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/event"
 	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/proxy"
-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/util"
 )
 
 // WebRTCPeer represents a WebRTC connection to a remote snowflake proxy.
@@ -272,13 +270,6 @@ func (c *WebRTCPeer) preparePeerConnection(
 	s := webrtc.SettingEngine{}
 
 	if !keepLocalAddresses {
-		s.SetIPFilter(func(ip net.IP) (keep bool) {
-			// `IsLoopback()` and `IsUnspecified` are likely not neded here,
-			// but let's keep them just in case.
-			// FYI there is similar code in other files in this project.
-			keep = !util.IsLocal(ip) && !ip.IsLoopback() && !ip.IsUnspecified()
-			return
-		})
 		s.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 	}
 	s.SetIncludeLoopbackCandidate(keepLocalAddresses)

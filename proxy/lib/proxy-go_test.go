@@ -336,7 +336,7 @@ func TestBrokerInteractions(t *testing.T) {
 
 	Convey("Proxy connections to broker", t, func() {
 		var err error
-		broker, err = newSignalingServer("localhost")
+		broker, err = newSignalingServer("localhost", false)
 		So(err, ShouldBeNil)
 		tokens = newTokens(0)
 
