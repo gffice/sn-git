@@ -83,11 +83,6 @@ func IsLocal(ip net.IP) bool {
 }
 
 // Removes local LAN address ICE candidates
-//
-// This is unused after https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/merge_requests/442,
-// but come in handy later for https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/issues/40322
-// Also this is exported, so let's not remove it at least until
-// the next major release.
 func StripLocalAddresses(str string) string {
 	var desc sdp.SessionDescription
 	err := desc.Unmarshal([]byte(str))
@@ -103,6 +98,7 @@ func StripLocalAddresses(str string) string {
 					ip := net.ParseIP(c.Address())
 					if ip != nil && (IsLocal(ip) || ip.IsUnspecified() || ip.IsLoopback()) {
 						/* no append in this case */
+						log.Printf("Removed candidate %v", a)
 						continue
 					}
 				}
