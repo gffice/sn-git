@@ -455,6 +455,7 @@ func (sf *SnowflakeProxy) makeWebRTCAPI() *webrtc.API {
 		// replace SDP host candidates with the given IP without validation
 		// still have server reflexive candidates to fall back on
 		settingsEngine.SetNAT1To1IPs([]string{sf.OutboundAddress}, webrtc.ICECandidateTypeHost)
+		settingsEngine.SetNAT1To1IPs([]string{sf.OutboundAddress}, webrtc.ICECandidateTypeSrflx)
 	}
 
 	settingsEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
