@@ -1,3 +1,6 @@
+Changes in version v2.15.1 - 2026-10-07
+- CI: Update generate_tarball image to use go v1.25
+
 Changes in version v2.15.0 - 2026-10-07
 - Probetest: Fixes to probetest readme
 - Issue 40550: Proxy: Update CLI help text for pollInterval
