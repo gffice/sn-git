@@ -486,7 +486,16 @@ func (sf *SnowflakeProxy) makePeerConnectionFromOffer(
 		return nil, fmt.Errorf("accept: NewPeerConnection: %s", err)
 	}
 
+	var acceptDataChannelOnce sync.Once
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		firstDataChannel := false
+		acceptDataChannelOnce.Do(func() {
+			firstDataChannel = true
+		})
+		if !firstDataChannel {
+			log.Printf("Discarded Subsequent Data Channel %s-%d:%v\n", dc.Label(), dc.ID(), dc.Close())
+			return
+		}
 		log.Printf("New Data Channel %s-%d\n", dc.Label(), dc.ID())
 		close(dataChan)
 
