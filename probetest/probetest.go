@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pion/sdp/v3"
@@ -92,7 +93,16 @@ func makePeerConnectionFromOffer(stunURL string, sdp *webrtc.SessionDescription,
 	if err != nil {
 		return nil, fmt.Errorf("accept: NewPeerConnection: %s", err)
 	}
+	var acceptDataChannelOnce sync.Once
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		firstDataChannel := false
+		acceptDataChannelOnce.Do(func() {
+			firstDataChannel = true
+		})
+		if !firstDataChannel {
+			log.Printf("Discarded Subsequent Data Channel %s-%d:%v\n", dc.Label(), dc.ID(), dc.Close())
+			return
+		}
 		dc.OnOpen(func() {
 			close(dataChanOpen)
 		})

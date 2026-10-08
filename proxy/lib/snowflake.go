@@ -455,6 +455,7 @@ func (sf *SnowflakeProxy) makeWebRTCAPI() *webrtc.API {
 		// replace SDP host candidates with the given IP without validation
 		// still have server reflexive candidates to fall back on
 		settingsEngine.SetNAT1To1IPs([]string{sf.OutboundAddress}, webrtc.ICECandidateTypeHost)
+		settingsEngine.SetNAT1To1IPs([]string{sf.OutboundAddress}, webrtc.ICECandidateTypeSrflx)
 	}
 
 	settingsEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
@@ -486,7 +487,16 @@ func (sf *SnowflakeProxy) makePeerConnectionFromOffer(
 		return nil, fmt.Errorf("accept: NewPeerConnection: %s", err)
 	}
 
+	var acceptDataChannelOnce sync.Once
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		firstDataChannel := false
+		acceptDataChannelOnce.Do(func() {
+			firstDataChannel = true
+		})
+		if !firstDataChannel {
+			log.Printf("Discarded Subsequent Data Channel %s-%d:%v\n", dc.Label(), dc.ID(), dc.Close())
+			return
+		}
 		log.Printf("New Data Channel %s-%d\n", dc.Label(), dc.ID())
 		close(dataChan)
 
