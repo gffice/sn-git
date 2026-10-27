@@ -687,12 +687,6 @@ func (sf *SnowflakeProxy) makeNewPeerConnection(
 
 func (sf *SnowflakeProxy) runSession(sid string) {
 	connectedToClient := false
-	defer func() {
-		if !connectedToClient {
-			tokens.ret()
-		}
-		// Otherwise we'll `tokens.ret()` when the connection finishes.
-	}()
 
 	pollResponse, err := broker.pollOffer(sid, sf.ProxyType, sf.RelayDomainNamePattern)
 	if err != nil {
@@ -706,6 +700,12 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 	sf.pollTicker.Reset(max(sf.MinPollInterval, pollInterval))
 	log.Printf("Poll interval set to %v", max(sf.MinPollInterval, pollInterval))
 	go func() {
+		defer func() {
+			if !connectedToClient {
+				tokens.ret()
+			}
+			// Otherwise we'll `tokens.ret()` when the connection finishes.
+		}()
 		if pollResponse.Offer == "" {
 			return
 		}
