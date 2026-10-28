@@ -35,7 +35,11 @@ func (t *tokens_t) ret() {
 	t.clients.Add(-1)
 
 	if t.capacity != 0 {
-		<-t.ch
+		select {
+		case <-t.ch:
+		default:
+			panic("duplicate calls to tokens.ret()")
+		}
 	}
 }
 
