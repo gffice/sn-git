@@ -685,19 +685,14 @@ func (sf *SnowflakeProxy) makeNewPeerConnection(
 	return pc, nil
 }
 
-func (sf *SnowflakeProxy) runSession(sid string) {
+func (sf *SnowflakeProxy) runSession(sid string) error {
 	connectedToClient := false
-	defer func() {
-		if !connectedToClient {
-			tokens.ret()
-		}
-		// Otherwise we'll `tokens.ret()` when the connection finishes.
-	}()
 
 	pollResponse, err := broker.pollOffer(sid, sf.ProxyType, sf.RelayDomainNamePattern)
 	if err != nil {
 		log.Printf("Error polling broker: %s", err.Error())
-		return
+		// Returning an error here will cause the caller to return the capacity token by calling tokens.ret()
+		return err
 	}
 	pollInterval := time.Duration(time.Duration(pollResponse.NextPoll) * time.Millisecond)
 	if pollInterval <= 0 {
@@ -706,6 +701,15 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 	sf.pollTicker.Reset(max(sf.MinPollInterval, pollInterval))
 	log.Printf("Poll interval set to %v", max(sf.MinPollInterval, pollInterval))
 	go func() {
+		defer func() {
+			// this goroutine takes responsibility for returning the capacity token by calling
+			// tokens.ret(), unless the client successfully connects, at which point responsibility
+			// passes to the datachannel handler
+			if !connectedToClient {
+				tokens.ret()
+			}
+			// Otherwise we'll `tokens.ret()` when the connection finishes.
+		}()
 		if pollResponse.Offer == "" {
 			return
 		}
@@ -746,6 +750,8 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 		case <-dataChan:
 			log.Println("Connection successful")
 			connectedToClient = true
+			// at this point the datachannel has been opened and the datachannel handler has token
+			// responsibility for returning the capacity token
 		case <-time.After(dataChannelTimeout):
 			log.Println("Timed out waiting for client to open data channel.")
 			sf.EventDispatcher.OnNewSnowflakeEvent(
@@ -756,6 +762,7 @@ func (sf *SnowflakeProxy) runSession(sid string) {
 			}
 		}
 	}()
+	return nil
 }
 
 // Returns nil if the relayURL is acceptable.
@@ -948,7 +955,11 @@ func (sf *SnowflakeProxy) Start() error {
 			if sf.relayReachable {
 				tokens.get()
 				sessionID := genSessionID()
-				sf.runSession(sessionID)
+				if err := sf.runSession(sessionID); err != nil {
+					// we return the capacity token only if runSession returns an error, otherwise the responsibility for
+					// returning a token falls to the session handler
+					tokens.ret()
+				}
 			}
 		}
 	}
